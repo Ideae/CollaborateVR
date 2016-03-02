@@ -64,30 +64,31 @@ public class Whiteboard : MonoBehaviour
 
       if (oldX != x || oldY != y)
       {
-        DrawBrush(x, y);
+        DrawBrush(x, y, false);
         if (oldX != -1 && oldY != -1 && shapeTexture.width < 127)
         {
           Vector2 dir = new Vector2(x - oldX, y - oldY);
           float dist = dir.magnitude;
           dir = dir.normalized;
-          step = Mathf.RoundToInt(Mathf.Log(shapeTexture.width, 1.2f) - 7);
+          step = Math.Max(2, Mathf.RoundToInt(Mathf.Log(shapeTexture.width, 1.2f) - 7));
           for (int i = step; i < dist; i += step)
           {
-            DrawBrush(Mathf.RoundToInt(oldX + dir.x * i), Mathf.RoundToInt(oldY + dir.y * i));
+            DrawBrush(Mathf.RoundToInt(oldX + dir.x * i), Mathf.RoundToInt(oldY + dir.y * i), false);
           }
         }
+        boardTexture.Apply();
         oldX = x;
         oldY = y;
       }
     }
   }
 
-  void DrawBrush(int x, int y)
+  void DrawBrush(int x, int y, bool apply = true)
   {
     int minx = Mathf.Max(0, x - shapeTexture.width / 2);
     int miny = Mathf.Max(0, y - shapeTexture.height / 2);
     int maxx = Mathf.Min(boardTexture.width, x + shapeTexture.width / 2);
-    int maxy = Mathf.Min(boardTexture.height, y + shapeTexture.height / 2);//handle odd case?
+    int maxy = Mathf.Min(boardTexture.height, y + shapeTexture.height / 2);
     int w = x - minx, h = y - miny;
     int minBX = brushTexture.width / 2 - w;
     int minBY = brushTexture.height / 2 - h;
@@ -115,6 +116,9 @@ public class Whiteboard : MonoBehaviour
       }
     }
     //boardTexture.SetPixel(x, y, drawColor);
-    boardTexture.Apply();
+    if (apply)
+    {
+      boardTexture.Apply();
+    }
   }
 }
