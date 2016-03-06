@@ -1,16 +1,25 @@
 ﻿using System;
 using UnityEngine;
 using System.Collections;
+using UnityEngine.Networking;
 
-public class Whiteboard : MonoBehaviour
+public class Whiteboard : NetworkBehaviour
 {
+  //private uint boardId = 0;
   public Color drawColor = Color.black;
   public int width = 800;
   private int height;
   private Texture2D boardTexture;
   public Texture2D brushTexture, shapeTexture;
 
+  public Player localPlayer { get; set; }
+
   private Renderer rend;
+
+  void Awake()
+  {
+    //boardId = this.netId.Value;
+  }
   // Use this for initialization
   void Start ()
   {
@@ -50,6 +59,7 @@ public class Whiteboard : MonoBehaviour
 
   void OnMouseDown()
   {
+    Debug.Log("Pressing left click");
     DrawOnBoard();
   }
   void OnMouseDrag()
@@ -66,6 +76,7 @@ public class Whiteboard : MonoBehaviour
   private int oldX, oldY;
   void DrawOnBoard()
   {
+    Debug.Log("DrawOnBoard");
     Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
     RaycastHit hit;
     if (Physics.Raycast(ray, out hit))
@@ -73,30 +84,36 @@ public class Whiteboard : MonoBehaviour
       var coll = transform.GetComponent<Collider>();
       int x = (int)(((hit.point.x - coll.bounds.min.x) / coll.bounds.size.x) * width);
       int y = (int)(((hit.point.y - coll.bounds.min.y) / coll.bounds.size.y) * height);
-
+      Debug.Log("raycasthit");
       if (oldX != x || oldY != y)
       {
-        DrawBrush(x, y, false);
-        if (oldX != -1 && oldY != -1 && shapeTexture.width < 127)
-        {
-          Vector2 dir = new Vector2(x - oldX, y - oldY);
-          float dist = dir.magnitude;
-          dir = dir.normalized;
-          step = Math.Max(2, Mathf.RoundToInt(Mathf.Log(shapeTexture.width, 1.2f) - 7));
-          for (int i = step; i < dist; i += step)
-          {
-            DrawBrush(Mathf.RoundToInt(oldX + dir.x * i), Mathf.RoundToInt(oldY + dir.y * i), false);
-          }
-        }
-        boardTexture.Apply();
+        Debug.Log("oldx/y not equal");
+        //DrawBrush(x, y, false);
+        //if (oldX != -1 && oldY != -1 && shapeTexture.width < 127)
+        //{
+        //  Vector2 dir = new Vector2(x - oldX, y - oldY);
+        //  float dist = dir.magnitude;
+        //  dir = dir.normalized;
+        //  step = Math.Max(2, Mathf.RoundToInt(Mathf.Log(shapeTexture.width, 1.2f) - 7));
+        //  for (int i = step; i < dist; i += step)
+        //  {
+        //    DrawBrush(Mathf.RoundToInt(oldX + dir.x * i), Mathf.RoundToInt(oldY + dir.y * i), false);
+        //  }
+        //}
+        //boardTexture.Apply();
+        localPlayer.CallDrawBrush(x, y, true, netId.Value);
+
         oldX = x;
         oldY = y;
       }
     }
   }
 
-  void DrawBrush(int x, int y, bool apply = true)
+  
+
+  public void DrawBrush(int x, int y, bool apply = true)
   {
+    Debug.Log("DrawBrush");
     int minx = Mathf.Max(0, x - shapeTexture.width / 2);
     int miny = Mathf.Max(0, y - shapeTexture.height / 2);
     int maxx = Mathf.Min(boardTexture.width, x + shapeTexture.width / 2);

@@ -1,37 +1,105 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.Networking;
 using System.Runtime.InteropServices;
 using UnityStandardAssets.Characters.FirstPerson;
 
+[NetworkSettings(channel = 1)]
 public class Player : NetworkBehaviour
 {
-  public float walkSpeed = 3f;
+  //public float walkSpeed = 3f;
   public float mouseRotateSpeed = 0.2f;
+  public float positionUpdateRate = 0.2f;
+  public float smooth = 4f;
+
   private Camera cam;
   private CharacterController characterCont;
   private FirstPersonController fpController;
-  private Rigidbody rigid;
-	void Start ()
-	{
-	  if (isLocalPlayer)
-	  {
-	    rigid = GetComponent<Rigidbody>();
-	    characterCont = GetComponent<CharacterController>();
-      characterCont.enabled = true;
-	    fpController = GetComponent<FirstPersonController>();
-	    fpController.enabled = true;
-	    cam = transform.FindChild("Camera").GetComponent<Camera>();
-      cam.gameObject.SetActive(true);
+  private Rigidbody myRigidbody;
+  private Transform myTransform;
+
+  private Vector3 playerPosition;
+  private Point oldMousePoint;
+
+  [DllImport("user32.dll")]
+  public static extern bool SetCursorPos(int X, int Y);
+  [DllImport("user32.dll")]
+  public static extern bool GetCursorPos(out Point pos);
+
+  
+
+  private static Player localPlayer;
+  private Dictionary<uint, Whiteboard> whiteboards;
+  public override void OnStartLocalPlayer()
+  {
+    base.OnStartLocalPlayer();
+    localPlayer = this;
+    whiteboards = new Dictionary<uint, Whiteboard>();
+    var boards = FindObjectsOfType<Whiteboard>();
+    foreach (var board in boards)
+    {
+      board.localPlayer = this;
+      whiteboards[board.netId.Value] = board;
     }
+  }
+
+  void Start ()
+	{
+    myTransform = transform;
+    myRigidbody = GetComponent<Rigidbody>();
+    characterCont = GetComponent<CharacterController>();
+    fpController = GetComponent<FirstPersonController>();
+    cam = transform.FindChild("Camera").GetComponent<Camera>();
+    if (isLocalPlayer)
+	  {
+      characterCont.enabled = true;
+	    fpController.enabled = true;
+      cam.gameObject.SetActive(true);
+	    StartCoroutine(UpdatePosition());
+	  }
 	}
 
-  private Point oldMousePoint;
-	void Update () {
-	  if (isLocalPlayer)
-	  {
+  void LerpPosition()
+  {
+    myTransform.position = Vector3.Lerp(myTransform.position, playerPosition, Time.deltaTime*smooth);
+    //myTransform.position = Vector3.MoveTowards(myTransform.position, playerPosition, Time.deltaTime * smooth);
+  }
+
+  IEnumerator UpdatePosition()
+  {
+    while (enabled)
+    {
+      CmdSendPosition(transform.position);
+      yield return new WaitForSeconds(positionUpdateRate);
+    }
+  }
+
+  [Command]
+  void CmdSendPosition(Vector3 pos)
+  {
+    playerPosition = pos;
+    RpcReceivePosition(pos);
+  }
+
+  [ClientRpc]
+  void RpcReceivePosition(Vector3 pos)
+  {
+    playerPosition = pos;
+  }
+
+  
+  
+  void Update () {
+    if (isLocalPlayer)
+    {
       HandleMouseRotation();
-	    //HandlePlayerMovement();
-	  }
+      //HandlePlayerMovement();
+    }
+    else
+    {
+      LerpPosition();
+    }
 	}
 
   private void HandleMouseRotation()
@@ -58,22 +126,39 @@ public class Player : NetworkBehaviour
     }
   }
 
-  private void HandlePlayerMovement()
+  public void CallDrawBrush(int x, int y, bool apply, uint boardId)
   {
-    float horiz = Input.GetAxis("Horizontal");
-    float vert = Input.GetAxis("Vertical");
-    Vector3 v = new Vector3(horiz, 0f, vert) * walkSpeed;
-    v = transform.rotation*v*Time.deltaTime;
-    //Quaternion yRot = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
-    //characterCont.SimpleMove(v);
-    //characterCont.Move(v);
-    rigid.MovePosition(transform.position + v);
+    Debug.Log("CallDrawBrush");
+    CmdDrawBrush(x, y, apply, boardId);
+  }
+  [Command]
+  void CmdDrawBrush(int x, int y, bool apply, uint boardId)
+  {
+    Debug.Log("CmdDrawBrush");
+    RpcDrawBrush(x, y, apply, boardId);
   }
 
-  [DllImport("user32.dll")]
-  public static extern bool SetCursorPos(int X, int Y);
-  [DllImport("user32.dll")]
-  public static extern bool GetCursorPos(out Point pos);
+  [ClientRpc]
+  void RpcDrawBrush(int x, int y, bool apply, uint boardId)
+  {
+    Debug.Log("RpcDrawBrush");
+    if (localPlayer != null)
+    {
+      localPlayer.whiteboards[boardId].DrawBrush(x, y, apply);
+    }
+  }
+
+  //private void HandlePlayerMovement()
+  //{
+  //  float horiz = Input.GetAxis("Horizontal");
+  //  float vert = Input.GetAxis("Vertical");
+  //  Vector3 v = new Vector3(horiz, 0f, vert) * walkSpeed;
+  //  v = transform.rotation*v*Time.deltaTime;
+  //  //Quaternion yRot = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
+  //  //characterCont.SimpleMove(v);
+  //  //characterCont.Move(v);
+  //  myRigidbody.MovePosition(transform.position + v);
+  //}
 }
 
 public struct Point
