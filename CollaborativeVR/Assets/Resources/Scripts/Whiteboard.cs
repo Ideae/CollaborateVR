@@ -101,7 +101,7 @@ public class Whiteboard : NetworkBehaviour
         //  }
         //}
         //boardTexture.Apply();
-        localPlayer.CallDrawBrush(x, y, true, netId.Value);
+        localPlayer.CallDrawBrush(x, y, oldX, oldY, netId.Value);
 
         oldX = x;
         oldY = y;
@@ -109,11 +109,31 @@ public class Whiteboard : NetworkBehaviour
     }
   }
 
+  public void DrawOnBoardCallback(int x, int y, int px, int py)
+  {
+    DrawBrush(x, y, false);
+    //print(x + " : " + y + " , " + oldX + " : " + oldY);
+    if (px != -1 && py != -1 && shapeTexture.width < 127)
+    {
+      Vector2 dir = new Vector2(x - px, y - py);
+      float dist = dir.magnitude;
+      dir = dir.normalized;
+      step = Math.Max(2, Mathf.RoundToInt(Mathf.Log(shapeTexture.width, 1.2f) - 7));
+      for (int i = step; i < dist; i += step)
+      {
+        DrawBrush(Mathf.RoundToInt(px + dir.x * i), Mathf.RoundToInt(py + dir.y * i), false);
+      }
+    }
+    boardTexture.Apply();
+
+    
+  }
+
   
 
   public void DrawBrush(int x, int y, bool apply = true)
   {
-    Debug.Log("DrawBrush");
+    //Debug.Log("DrawBrush");
     int minx = Mathf.Max(0, x - shapeTexture.width / 2);
     int miny = Mathf.Max(0, y - shapeTexture.height / 2);
     int maxx = Mathf.Min(boardTexture.width, x + shapeTexture.width / 2);

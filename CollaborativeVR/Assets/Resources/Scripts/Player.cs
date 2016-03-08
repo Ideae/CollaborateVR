@@ -126,25 +126,25 @@ public class Player : NetworkBehaviour
     }
   }
 
-  public void CallDrawBrush(int x, int y, bool apply, uint boardId)
+  public void CallDrawBrush(int x, int y, int px, int py, uint boardId)
   {
     Debug.Log("CallDrawBrush");
-    CmdDrawBrush(x, y, apply, boardId);
+    CmdDrawBrush(x, y, px, py, boardId);
   }
   [Command]
-  void CmdDrawBrush(int x, int y, bool apply, uint boardId)
+  void CmdDrawBrush(int x, int y, int px, int py, uint boardId)
   {
     Debug.Log("CmdDrawBrush");
-    RpcDrawBrush(x, y, apply, boardId);
+    RpcDrawBrush(x, y, px, py, boardId);
   }
 
   [ClientRpc]
-  void RpcDrawBrush(int x, int y, bool apply, uint boardId)
+  void RpcDrawBrush(int x, int y, int px, int py, uint boardId)
   {
     Debug.Log("RpcDrawBrush");
     if (localPlayer != null)
     {
-      localPlayer.whiteboards[boardId].DrawBrush(x, y, apply);
+      localPlayer.whiteboards[boardId].DrawOnBoardCallback(x, y, px, py);
     }
   }
 
