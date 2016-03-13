@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 using System.Runtime.InteropServices;
@@ -27,10 +28,8 @@ public class Player : NetworkBehaviour
   [DllImport("user32.dll")]
   public static extern bool GetCursorPos(out Point pos);
 
-  
-
   private static Player localPlayer;
-  private Dictionary<uint, Whiteboard> whiteboards;
+  private static Dictionary<uint, Whiteboard> whiteboards;
   public override void OnStartLocalPlayer()
   {
     base.OnStartLocalPlayer();
@@ -42,7 +41,67 @@ public class Player : NetworkBehaviour
       board.localPlayer = this;
       whiteboards[board.netId.Value] = board;
     }
+
+
+
+    NetworkTransmitter networkTransmitter = GetComponent<NetworkTransmitter>();
+    networkTransmitter.OnDataCompletelyReceived += ReceivedTextureHandler;
+    CmdSendTexture(whiteboards.ElementAt(0).Key);
+    //CmdSendTexture(whiteboards.ElementAt(1).Key);
   }
+
+  private static int transId = 0;
+  [Command]
+  void CmdSendTexture(uint whiteboardId)
+  {
+    var w = whiteboards[whiteboardId];
+    Texture2D tex = w.boardTexture;
+    byte[] raw = tex.GetRawTextureData();
+    RpcSendWhiteboardId(transId, whiteboardId);
+    NetworkTransmitter networkTransmitter = GetComponent<NetworkTransmitter>();
+    //networkTransmitter.OnDataCompletelyReceived += ReceivedTextureHandler;
+
+    StartCoroutine(networkTransmitter.SendBytesToClientsRoutine(transId, raw));
+
+    transId++;
+
+    //RpcSendTexture(raw, whiteboardId, tex.width, tex.height);
+  }
+  private Dictionary<int, uint> transToWhiteboard = new Dictionary<int, uint>();
+  [ClientRpc]
+  void RpcSendWhiteboardId(int transmissionId, uint whiteboardId)
+  {
+    transToWhiteboard.Add(transmissionId, whiteboardId);
+  }
+
+  [Client]
+  void ReceivedTextureHandler(int transmissionId, byte[] data)
+  {
+    Debug.Log("ReceivedTextureHandler");
+    if (isLocalPlayer)
+    {
+    Debug.Log("isLocalPlayer");
+      if (transToWhiteboard.ContainsKey(transmissionId))
+      {
+    Debug.Log("ContainsKey");
+        uint whiteboardId = transToWhiteboard[transmissionId];
+        var whiteboard = whiteboards[whiteboardId];
+        whiteboard.boardTexture.LoadRawTextureData(data);
+        whiteboard.boardTexture.Apply();
+        transToWhiteboard.Remove(transmissionId);
+      }
+    }
+  }
+  //[ClientRpc]
+  //void RpcSendTexture(byte[] textureBytes, uint whiteboardId, int width, int height)
+  //{
+  //  if (isLocalPlayer)
+  //  {
+  //    var whiteboard = whiteboards[whiteboardId];
+  //    whiteboard.boardTexture.LoadRawTextureData(textureBytes);
+  //    whiteboard.boardTexture.Apply();
+  //  }
+  //}
 
   void Start ()
 	{
@@ -128,23 +187,23 @@ public class Player : NetworkBehaviour
 
   public void CallDrawBrush(int x, int y, int px, int py, uint boardId)
   {
-    Debug.Log("CallDrawBrush");
+    //Debug.Log("CallDrawBrush");
     CmdDrawBrush(x, y, px, py, boardId);
   }
   [Command]
   void CmdDrawBrush(int x, int y, int px, int py, uint boardId)
   {
-    Debug.Log("CmdDrawBrush");
+    //Debug.Log("CmdDrawBrush");
     RpcDrawBrush(x, y, px, py, boardId);
   }
 
   [ClientRpc]
   void RpcDrawBrush(int x, int y, int px, int py, uint boardId)
   {
-    Debug.Log("RpcDrawBrush");
+    //Debug.Log("RpcDrawBrush");
     if (localPlayer != null)
     {
-      localPlayer.whiteboards[boardId].DrawOnBoardCallback(x, y, px, py);
+      whiteboards[boardId].DrawOnBoardCallback(x, y, px, py);
     }
   }
 
