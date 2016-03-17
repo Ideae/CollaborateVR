@@ -5,11 +5,11 @@ using UnityEngine.Networking;
 
 public class Whiteboard : NetworkBehaviour
 {
-  //private uint boardId = 0;
   public Color drawColor = Color.black;
-  public int width = 800;
+  public int width = 100;
   private int height;
-  private Texture2D boardTexture;
+  [HideInInspector]
+  public Texture2D boardTexture;
   public Texture2D brushTexture, shapeTexture;
 
   public Player localPlayer { get; set; }
@@ -18,18 +18,18 @@ public class Whiteboard : NetworkBehaviour
 
   void Awake()
   {
-    //boardId = this.netId.Value;
-  }
-  // Use this for initialization
-  void Start ()
-  {
-    float aspect = transform.localScale.y/transform.localScale.x;
-	  height = (int)(width*aspect);//fix
+    float aspect = transform.localScale.y / transform.localScale.x;
+    height = (int)(width * aspect);//fix
     boardTexture = new Texture2D(width, height);
     //DrawTextureAllPixels(boardTexture, Color.white);
     rend = GetComponent<Renderer>();
     rend.material.mainTexture = boardTexture;
     oldX = oldY = -1;
+  }
+  // Use this for initialization
+  void Start ()
+  {
+    
 
     if (brushTexture == null)
     {
@@ -54,12 +54,22 @@ public class Whiteboard : NetworkBehaviour
   }
 	// Update is called once per frame
 	void Update () {
-	
+    //test
+	  if (Input.GetKeyDown(KeyCode.R))
+	  {
+	    var bs = boardTexture.GetRawTextureData();
+	    for (int i = 0; i < bs.Length; i++)
+	    {
+	      bs[i] = (byte)(int)(255*(((float) i)/bs.Length));
+	    }
+      boardTexture.LoadRawTextureData(bs);
+      boardTexture.Apply();
+	  }
 	}
 
   void OnMouseDown()
   {
-    Debug.Log("Pressing left click");
+    //Debug.Log("Pressing left click");
     DrawOnBoard();
   }
   void OnMouseDrag()
@@ -76,7 +86,7 @@ public class Whiteboard : NetworkBehaviour
   private int oldX, oldY;
   void DrawOnBoard()
   {
-    Debug.Log("DrawOnBoard");
+    //Debug.Log("DrawOnBoard");
     Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
     RaycastHit hit;
     if (Physics.Raycast(ray, out hit))
@@ -84,10 +94,10 @@ public class Whiteboard : NetworkBehaviour
       var coll = transform.GetComponent<Collider>();
       int x = (int)(((hit.point.x - coll.bounds.min.x) / coll.bounds.size.x) * width);
       int y = (int)(((hit.point.y - coll.bounds.min.y) / coll.bounds.size.y) * height);
-      Debug.Log("raycasthit");
+      //Debug.Log("raycasthit");
       if (oldX != x || oldY != y)
       {
-        Debug.Log("oldx/y not equal");
+        //Debug.Log("oldx/y not equal");
         //DrawBrush(x, y, false);
         //if (oldX != -1 && oldY != -1 && shapeTexture.width < 127)
         //{
