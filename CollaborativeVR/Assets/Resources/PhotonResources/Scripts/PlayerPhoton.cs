@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using System.Runtime.InteropServices;
 using UnityStandardAssets.Characters.FirstPerson;
@@ -50,7 +51,33 @@ public class PlayerPhoton : PunBehaviour
       characterCont.enabled = true;
       fpController.enabled = true;
       cam.gameObject.SetActive(true);
+
+      //start process of sending all whiteboard textures sequentially, with manuallly buffered RPCs
+      if (!PhotonNetwork.player.isMasterClient)
+      {
+        whiteboardIndex = 0;
+        whiteboards = FindObjectsOfType<PhotonWhiteboard>().ToList();
+        SendNextWhiteboardTexture();
+      }
+
     }
+  }
+
+  private List<PhotonWhiteboard> whiteboards;
+  private int whiteboardIndex = 0;
+
+  void SendNextWhiteboardTexture()
+  {
+    print("SendNextWhiteboardTexture");
+    if (whiteboardIndex >= whiteboards.Count) return;
+    print("whiteboardIndex >= whiteboards.Count");
+    PhotonWhiteboard board = whiteboards.ElementAt(whiteboardIndex);
+    whiteboardIndex++;
+    PhotonTransmitter networkTransmitter = board.GetComponent<PhotonTransmitter>();
+    networkTransmitter.OnDataCompletelyReceived += board.ReceivedTextureHandler;
+    networkTransmitter.OnDataCompletelyReceived += (a, b) => SendNextWhiteboardTexture();
+    board.photonView.RPC("CmdSendTexture", PhotonNetwork.masterClient, new object[] { PhotonNetwork.player.ID });
+    //CmdSendTexture(whiteboards.ElementAt(0).Key);
   }
 
   void Update()

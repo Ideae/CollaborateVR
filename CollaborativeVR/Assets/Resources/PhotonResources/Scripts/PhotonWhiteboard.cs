@@ -88,7 +88,7 @@ public class PhotonWhiteboard : PunBehaviour {
         //Debug.Log("oldx/y not equal");
 
         //DrawOnBoardCallback(x, y, oldX, oldY);
-        photonView.RPC("DrawOnBoardCallback", PhotonTargets.AllBuffered, new object[] { x, y, oldX, oldY });
+        photonView.RPC("DrawOnBoardCallback", PhotonTargets.All, new object[] { x, y, oldX, oldY });
 
         oldX = x;
         oldY = y;
@@ -155,4 +155,26 @@ public class PhotonWhiteboard : PunBehaviour {
       boardTexture.Apply();
     }
   }
+  private static int transId = 0;
+  [PunRPC]
+  void CmdSendTexture(int playerId)
+  {
+    print("CmdSendTexture");
+    Texture2D tex = boardTexture;
+    byte[] raw = tex.GetRawTextureData();
+    PhotonTransmitter networkTransmitter = GetComponent<PhotonTransmitter>();
+    //networkTransmitter.OnDataCompletelyReceived += ReceivedTextureHandler;
+
+    StartCoroutine(networkTransmitter.SendBytesToClientsRoutine(transId, raw, PhotonPlayer.Find(playerId)));
+
+    transId++;
+
+    //RpcSendTexture(raw, whiteboardId, tex.width, tex.height);
+  }
+  public void ReceivedTextureHandler(int transmissionId, byte[] data)
+  {
+      boardTexture.LoadRawTextureData(data);
+      boardTexture.Apply();
+  }
+
 }
