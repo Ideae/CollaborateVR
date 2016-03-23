@@ -29,6 +29,8 @@ public class PlayerPhoton : PunBehaviour
   private Vector3 correctPlayerPos;
   private Quaternion correctPlayerRot;
   private float speed = 5f;
+  [HideInInspector]
+  public static int spawnPosIndex = 0;
 
   void Start()
   {
@@ -44,6 +46,10 @@ public class PlayerPhoton : PunBehaviour
         tempCam.gameObject.SetActive(false);
       }
     }
+
+    var spawnPosObjs = GameObject.FindGameObjectsWithTag("spawnpos");
+    Vector3 pos = spawnPosObjs[spawnPosIndex % spawnPosObjs.Length].transform.position;
+
 
     cam = transform.FindChild("Camera").GetComponent<Camera>();
     if (photonView.isMine)
@@ -62,6 +68,8 @@ public class PlayerPhoton : PunBehaviour
 
     }
   }
+
+  
 
   private List<PhotonWhiteboard> whiteboards;
   private int whiteboardIndex = 0;
@@ -85,6 +93,7 @@ public class PlayerPhoton : PunBehaviour
     if (photonView.isMine)
     {
       HandleMouseRotation();
+      RepositionUI();
     }
     else
     {
@@ -133,7 +142,26 @@ public class PlayerPhoton : PunBehaviour
       cam.transform.Rotate(-yAxis, 0f, 0f);
     }
   }
-  
+
+  private PhotonWhiteboard activeBoard;
+  private void RepositionUI()
+  {
+    Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+    RaycastHit hit;
+    if (Physics.Raycast(ray, out hit))
+    {
+      var g = hit.collider.gameObject;
+      if (g.tag.Equals("whiteboard") && (activeBoard == null || activeBoard.gameObject != g))
+      {
+        activeBoard = g.GetComponent<PhotonWhiteboard>();
+        var canvas = FindObjectOfType<Canvas>();
+        var rect = canvas.GetComponent<RectTransform>();
+        Vector3 offset = new Vector3(0, g.transform.localScale.y/2 + rect.rect.height*rect.localScale.y/2, 0);
+        canvas.transform.position = activeBoard.transform.position + offset;
+        canvas.transform.rotation = activeBoard.transform.rotation;
+      }
+    }
+  }
 }
 
 //public struct Point

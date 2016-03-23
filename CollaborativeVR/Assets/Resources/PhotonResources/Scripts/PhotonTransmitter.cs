@@ -90,7 +90,7 @@ public class PhotonTransmitter : PunBehaviour
   [PunRPC]
   private void RpcPrepareToReceiveBytes(int transmissionId, int expectedSize)
   {
-    print("RpcPrepareToReceiveBytes");
+    //print("RpcPrepareToReceiveBytes");
     if (clientTransmissionData.ContainsKey(transmissionId))
       return;
 
@@ -104,7 +104,7 @@ public class PhotonTransmitter : PunBehaviour
   [PunRPC]
   private void RpcReceiveBytes(int transmissionId, byte[] recBuffer)
   {
-    print("RpcReceiveBytes");
+    //print("RpcReceiveBytes");
     //already completely received or not prepared?
     if (!clientTransmissionData.ContainsKey(transmissionId))
       return;

@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System;
+using System.Collections.Generic;
 using Photon;
 
 public class PhotonWhiteboard : PunBehaviour {
@@ -9,9 +10,24 @@ public class PhotonWhiteboard : PunBehaviour {
   public int width = 800;
   private int height;
   private Texture2D boardTexture;
+  private byte[,] boardBytes;
   public Texture2D brushTexture, shapeTexture;
   
   private Renderer rend;
+
+  public static byte drawColorID = 1;
+
+  public static Color[] colorArray = new Color[]
+  {
+    Color.white,
+    Color.black,
+    Color.blue,
+    Color.green,
+    Color.yellow,
+    new Color(1.0f,0.6f,0.0f,1.0f), 
+    Color.red,
+    new Color(0.5f,0f,0.5f,1.0f),
+  };
 
   void Awake()
   {
@@ -23,7 +39,9 @@ public class PhotonWhiteboard : PunBehaviour {
     float aspect = transform.localScale.y / transform.localScale.x;
     height = (int)(width * aspect);//fix
     boardTexture = new Texture2D(width, height);
-    //DrawTextureAllPixels(boardTexture, Color.white);
+    boardBytes = new byte[width, height];
+    
+    DrawTextureAllPixels(boardTexture, Color.white);
     rend = GetComponent<Renderer>();
     rend.material.mainTexture = boardTexture;
     oldX = oldY = -1;
@@ -34,7 +52,7 @@ public class PhotonWhiteboard : PunBehaviour {
     }
     if (shapeTexture == null)
     {
-      shapeTexture = (Texture2D)Resources.Load("WhiteCircle64");
+      shapeTexture = (Texture2D)Resources.Load("WhiteCircle2");
     }
   }
 
@@ -88,7 +106,7 @@ public class PhotonWhiteboard : PunBehaviour {
         //Debug.Log("oldx/y not equal");
 
         //DrawOnBoardCallback(x, y, oldX, oldY);
-        photonView.RPC("DrawOnBoardCallback", PhotonTargets.All, new object[] { x, y, oldX, oldY });
+        photonView.RPC("DrawOnBoardCallback", PhotonTargets.All, new object[] { x, y, oldX, oldY, drawColorID });
 
         oldX = x;
         oldY = y;
@@ -96,9 +114,9 @@ public class PhotonWhiteboard : PunBehaviour {
     }
   }
   [PunRPC]
-  public void DrawOnBoardCallback(int x, int y, int px, int py)
+  public void DrawOnBoardCallback(int x, int y, int px, int py, byte drawColID)
   {
-    DrawBrush(x, y, false);
+    DrawBrush(x, y, drawColID, false);
     //print(x + " : " + y + " , " + oldX + " : " + oldY);
     if (px != -1 && py != -1 && shapeTexture.width < 127)
     {
@@ -108,7 +126,7 @@ public class PhotonWhiteboard : PunBehaviour {
       step = Math.Max(2, Mathf.RoundToInt(Mathf.Log(shapeTexture.width, 1.2f) - 7));
       for (int i = step; i < dist; i += step)
       {
-        DrawBrush(Mathf.RoundToInt(px + dir.x * i), Mathf.RoundToInt(py + dir.y * i), false);
+        DrawBrush(Mathf.RoundToInt(px + dir.x * i), Mathf.RoundToInt(py + dir.y * i), drawColID, false);
       }
     }
     boardTexture.Apply();
@@ -116,7 +134,7 @@ public class PhotonWhiteboard : PunBehaviour {
 
 
 
-  public void DrawBrush(int x, int y, bool apply = true)
+  public void DrawBrush(int x, int y, byte drawColID, bool apply = true)
   {
     //Debug.Log("DrawBrush");
     int minx = Mathf.Max(0, x - shapeTexture.width / 2);
@@ -136,17 +154,17 @@ public class PhotonWhiteboard : PunBehaviour {
       for (int j = 0; j < diffY; j++)
       {
         int xx = i + minx, yy = j + miny;
-        Color oldCol = boardTexture.GetPixel(xx, yy);
+        //Color oldCol = boardTexture.GetPixel(xx, yy);
         Color brushCol = brushTexture.GetPixel(i + minBX, j + minBY);
         Color shapeCol = shapeTexture.GetPixel(i + minSX, j + minSY);
-        //Color temp = (Color.white - (shapeCol));
-        //Color temp2 = new Color(Math.Min(1f, temp.r + drawColor.r), Math.Min(1f, temp.g + drawColor.g), Math.Min(1f, temp.b + drawColor.b), Math.Min(1f, temp.a + drawColor.a));
-        //Color final = temp2 * oldCol; //brushCol * shapeCol
-        Color t = brushCol * shapeCol;//*brushCol.a;
-
-        Color final = drawColor * drawColor.a * t.r + oldCol * (1f - t.r * drawColor.a);
-
-        boardTexture.SetPixel(xx, yy, final);
+        Color t = brushCol * shapeCol;
+        //Color final = drawColor * drawColor.a * t.r + oldCol * (1f - t.r * drawColor.a);
+        //Color final = colorArray[drawColorID]*t.r + oldCol*(1f - t.r);
+        if (t.r > 0.9)
+        {
+          boardTexture.SetPixel(xx, yy, colorArray[drawColID]);
+          boardBytes[xx, yy] = drawColID;
+        }
       }
     }
     //boardTexture.SetPixel(x, y, drawColor);
@@ -160,11 +178,10 @@ public class PhotonWhiteboard : PunBehaviour {
   void CmdSendTexture(int playerId)
   {
     print("CmdSendTexture");
-    Texture2D tex = boardTexture;
-    byte[] raw = tex.GetRawTextureData();
+    //byte[] raw1 = boardTexture.GetRawTextureData();
+    byte[] raw = FlattenBytes(boardBytes);
+    //print("old: " + raw1.Length + "\nnew: " + raw.Length);
     PhotonTransmitter networkTransmitter = GetComponent<PhotonTransmitter>();
-    //networkTransmitter.OnDataCompletelyReceived += ReceivedTextureHandler;
-
     StartCoroutine(networkTransmitter.SendBytesToClientsRoutine(transId, raw, PhotonPlayer.Find(playerId)));
 
     transId++;
@@ -173,8 +190,34 @@ public class PhotonWhiteboard : PunBehaviour {
   }
   public void ReceivedTextureHandler(int transmissionId, byte[] data)
   {
-      boardTexture.LoadRawTextureData(data);
-      boardTexture.Apply();
+    boardBytes = UnflattenBytes(data, width,height);
+    WriteBytesToBoard();
+    //boardTexture.LoadRawTextureData(data);
+    //boardTexture.Apply();
   }
 
+  private byte[] FlattenBytes(byte[,] source)
+  {
+    byte[] dest = new byte[source.Length];
+    Buffer.BlockCopy(source, 0, dest, 0, source.Length);
+    return dest;
+  }
+  private byte[,] UnflattenBytes(byte[] source, int width, int height)
+  {
+    byte[,] dest = new byte[width, height];
+    Buffer.BlockCopy(source, 0, dest, 0, source.Length);
+    return dest;
+  }
+
+  private void WriteBytesToBoard()
+  {
+    for (int i = 0; i < boardBytes.GetLength(0); i++)
+    {
+      for (int j = 0; j < boardBytes.GetLength(1); j++)
+      {
+        boardTexture.SetPixel(i, j, colorArray[boardBytes[i,j]]);
+      }
+    }
+    boardTexture.Apply();
+  }
 }

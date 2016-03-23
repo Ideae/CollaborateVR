@@ -4,7 +4,7 @@ using Photon;
 public class RandomMatchmaker : PunBehaviour
 {
   private PhotonView myPhotonView;
-  private int spawnPosIndex = 0;
+  
   // Use this for initialization
   void Start()
   {
@@ -41,16 +41,20 @@ public class RandomMatchmaker : PunBehaviour
   
   public override void OnJoinedRoom()
   {
-    var spawnPosObjs = GameObject.FindGameObjectsWithTag("spawnpos");
-    Vector3 pos = spawnPosObjs[spawnPosIndex % spawnPosObjs.Length].transform.position;
-    GameObject player = PhotonNetwork.Instantiate("PhotonResources/Prefabs/PlayerPhoton", pos, Quaternion.identity, 0);
+    GameObject player = PhotonNetwork.Instantiate("PhotonResources/Prefabs/PlayerPhoton", Vector3.zero, Quaternion.identity, 0);
     myPhotonView = player.GetComponent<PhotonView>();
-    photonView.RPC("IncrementSpawnPos", PhotonTargets.AllBuffered);
   }
 
-  [PunRPC]
-  public void IncrementSpawnPos()
+  public override void OnPhotonPlayerConnected(PhotonPlayer newPlayer)
   {
-    spawnPosIndex++;
+    if (PhotonNetwork.player.isMasterClient)
+    {
+      photonView.RPC("IncrementSpawnPos", PhotonTargets.All, new object[] { PlayerPhoton.spawnPosIndex + 1 });
+    }
+  }
+  [PunRPC]
+  public void IncrementSpawnPos(int newIndex)
+  {
+    PlayerPhoton.spawnPosIndex = newIndex;
   }
 }
