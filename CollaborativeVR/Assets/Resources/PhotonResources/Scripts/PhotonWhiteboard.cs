@@ -190,7 +190,18 @@ public class PhotonWhiteboard : PunBehaviour {
   }
   public void ReceivedTextureHandler(int transmissionId, byte[] data)
   {
-    boardBytes = UnflattenBytes(data, width,height);
+    byte[,] tempBoardBytes = UnflattenBytes(data, width, height);
+    for (int i = 0; i < tempBoardBytes.GetLength(0); i++)
+    {
+      for (int j = 0; j < tempBoardBytes.GetLength(1); j++)
+      {
+        if (boardBytes[i,j] == 0)
+        {
+          boardBytes[i, j] = tempBoardBytes[i, j];
+        }
+      }
+    }
+    //boardBytes = UnflattenBytes(data, width,height);
     WriteBytesToBoard();
     //boardTexture.LoadRawTextureData(data);
     //boardTexture.Apply();
@@ -215,7 +226,7 @@ public class PhotonWhiteboard : PunBehaviour {
     {
       for (int j = 0; j < boardBytes.GetLength(1); j++)
       {
-        boardTexture.SetPixel(i, j, colorArray[boardBytes[i,j]]);
+          boardTexture.SetPixel(i, j, colorArray[boardBytes[i, j]]);
       }
     }
     boardTexture.Apply();
