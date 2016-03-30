@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using Photon;
+using UnityEngine.VR;
 
 public class RandomMatchmaker : PunBehaviour
 {
@@ -13,6 +14,14 @@ public class RandomMatchmaker : PunBehaviour
 
   }
 
+  void Update()
+  {
+    if (Input.GetKeyDown(KeyCode.V))
+    {
+      VRSettings.enabled = !VRSettings.enabled;
+      
+    }
+  }
   void OnGUI()
   {
     GUILayout.Label(PhotonNetwork.connectionStateDetailed.ToString());

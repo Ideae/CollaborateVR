@@ -11,7 +11,8 @@ public class PhotonWhiteboard : PunBehaviour {
   private int height;
   private Texture2D boardTexture;
   private byte[,] boardBytes;
-  public Texture2D brushTexture, shapeTexture;
+  //public Texture2D brushTexture;//, shapeTexture;
+  public static Texture2D shapeTexture;
   
   private Renderer rend;
 
@@ -28,6 +29,33 @@ public class PhotonWhiteboard : PunBehaviour {
     Color.red,
     new Color(0.5f,0f,0.5f,1.0f),
   };
+
+  private static byte brushSizeID = 1;
+  //public static int[] brushSizeArray = new int[]
+  //{
+  //  1,
+  //  2,
+  //  3,
+  //  4,
+  //  6,
+  //  8,
+  //  16,
+  //  32,
+  //};
+
+  public static void SetBrushSize(byte sizeID)
+  {
+    var temp = GetShapeTexture(sizeID);
+    if (temp != null)
+    {
+      shapeTexture =  temp;
+    }
+  }
+
+  public static Texture2D GetShapeTexture(int index)
+  {
+    return (Texture2D)Resources.Load("Textures/Brushes/Brush" + index);
+  }
 
   void Awake()
   {
@@ -46,13 +74,13 @@ public class PhotonWhiteboard : PunBehaviour {
     rend.material.mainTexture = boardTexture;
     oldX = oldY = -1;
 
-    if (brushTexture == null)
-    {
-      brushTexture = (Texture2D)Resources.Load("Textures/brush_256/White1");
-    }
+    //if (brushTexture == null)
+    //{
+    //  brushTexture = (Texture2D)Resources.Load("Textures/brush_256/White1");
+    //}
     if (shapeTexture == null)
     {
-      shapeTexture = (Texture2D)Resources.Load("WhiteCircle2");
+      shapeTexture = GetShapeTexture(2);
     }
   }
 
@@ -73,44 +101,48 @@ public class PhotonWhiteboard : PunBehaviour {
 
   }
 
-  void OnMouseDown()
+  public void OnMouseDown()
   {
     //Debug.Log("Pressing left click");
-    DrawOnBoard();
+    MouseDrawOnBoard();
   }
   void OnMouseDrag()
   {
-    DrawOnBoard();
+    MouseDrawOnBoard();
   }
 
-  void OnMouseUp()
+  public void OnMouseUp()
   {
     oldX = oldY = -1;
   }
 
-  public int step = 10;
-  private int oldX, oldY;
-  void DrawOnBoard()
+  void MouseDrawOnBoard()
   {
-    //Debug.Log("DrawOnBoard");
     Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
     RaycastHit hit;
     if (Physics.Raycast(ray, out hit))
     {
-      var coll = transform.GetComponent<Collider>();
-      int x = (int)(((hit.point.x - coll.bounds.min.x) / coll.bounds.size.x) * width);
-      int y = (int)(((hit.point.y - coll.bounds.min.y) / coll.bounds.size.y) * height);
-      //Debug.Log("raycasthit");
-      if (oldX != x || oldY != y)
-      {
-        //Debug.Log("oldx/y not equal");
+      DrawOnBoard(hit.point);
+    }
+  }
 
-        //DrawOnBoardCallback(x, y, oldX, oldY);
-        photonView.RPC("DrawOnBoardCallback", PhotonTargets.All, new object[] { x, y, oldX, oldY, drawColorID });
+  public int step = 10;
+  private int oldX, oldY;
+  public void DrawOnBoard(Vector3 hitpoint)
+  {
+    var coll = transform.GetComponent<Collider>();
+    int x = (int)(((hitpoint.x - coll.bounds.min.x) / coll.bounds.size.x) * width);
+    int y = (int)(((hitpoint.y - coll.bounds.min.y) / coll.bounds.size.y) * height);
+    //Debug.Log("raycasthit");
+    if (oldX != x || oldY != y)
+    {
+      //Debug.Log("oldx/y not equal");
 
-        oldX = x;
-        oldY = y;
-      }
+      //DrawOnBoardCallback(x, y, oldX, oldY);
+      photonView.RPC("DrawOnBoardCallback", PhotonTargets.All, new object[] { x, y, oldX, oldY, drawColorID });
+
+      oldX = x;
+      oldY = y;
     }
   }
   [PunRPC]
@@ -142,8 +174,8 @@ public class PhotonWhiteboard : PunBehaviour {
     int maxx = Mathf.Min(boardTexture.width, x + shapeTexture.width / 2);
     int maxy = Mathf.Min(boardTexture.height, y + shapeTexture.height / 2);
     int w = x - minx, h = y - miny;
-    int minBX = brushTexture.width / 2 - w;
-    int minBY = brushTexture.height / 2 - h;
+    //int minBX = brushTexture.width / 2 - w;
+    //int minBY = brushTexture.height / 2 - h;
     int minSX = shapeTexture.width / 2 - w;
     int minSY = shapeTexture.height / 2 - h;
     int diffX = maxx - minx;
@@ -155,12 +187,12 @@ public class PhotonWhiteboard : PunBehaviour {
       {
         int xx = i + minx, yy = j + miny;
         //Color oldCol = boardTexture.GetPixel(xx, yy);
-        Color brushCol = brushTexture.GetPixel(i + minBX, j + minBY);
+        //Color brushCol = brushTexture.GetPixel(i + minBX, j + minBY);
         Color shapeCol = shapeTexture.GetPixel(i + minSX, j + minSY);
-        Color t = brushCol * shapeCol;
+        //Color t = brushCol * shapeCol;
         //Color final = drawColor * drawColor.a * t.r + oldCol * (1f - t.r * drawColor.a);
         //Color final = colorArray[drawColorID]*t.r + oldCol*(1f - t.r);
-        if (t.r > 0.9)
+        if (shapeCol.r < 0.1)
         {
           boardTexture.SetPixel(xx, yy, colorArray[drawColID]);
           boardBytes[xx, yy] = drawColID;
