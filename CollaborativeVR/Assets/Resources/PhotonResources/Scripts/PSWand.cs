@@ -80,8 +80,8 @@ public class PSWand : MonoBehaviour
   
   private void Update()
   {
-    //bool seen = controller.IsTracking;
-    //controller.SetRumble(seen ? 0f : 0.5f);
+     bool seen = controller.IsTracking;
+    controller.SetRumble(seen ? 0f : 0.5f);
 
     //if (controller.TriggerValue > triggerThreshold && oldTriggerValue <= triggerThreshold)
     //{
