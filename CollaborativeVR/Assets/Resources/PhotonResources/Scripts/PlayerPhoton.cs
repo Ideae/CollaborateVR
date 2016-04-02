@@ -93,7 +93,7 @@ public class PlayerPhoton : PunBehaviour
     if (photonView.isMine)
     {
       HandleMouseRotation();
-      RepositionUI();
+      //RepositionUI();
     }
     else
     {

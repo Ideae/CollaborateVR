@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using Photon;
 
 public class PhotonWhiteboard : PunBehaviour {
-  
+  //Texture Implementation
   public Color drawColor = Color.black;
   public int width = 800;
   private int height;
@@ -31,17 +31,6 @@ public class PhotonWhiteboard : PunBehaviour {
   };
 
   private static byte brushSizeID = 1;
-  //public static int[] brushSizeArray = new int[]
-  //{
-  //  1,
-  //  2,
-  //  3,
-  //  4,
-  //  6,
-  //  8,
-  //  16,
-  //  32,
-  //};
 
   public static void SetBrushSize(byte sizeID)
   {
@@ -56,12 +45,7 @@ public class PhotonWhiteboard : PunBehaviour {
   {
     return (Texture2D)Resources.Load("Textures/Brushes/Brush" + index);
   }
-
-  void Awake()
-  {
-
-  }
-  // Use this for initialization
+  
   void Start()
   {
     float aspect = transform.localScale.y / transform.localScale.x;
@@ -73,11 +57,7 @@ public class PhotonWhiteboard : PunBehaviour {
     rend = GetComponent<Renderer>();
     rend.material.mainTexture = boardTexture;
     oldX = oldY = -1;
-
-    //if (brushTexture == null)
-    //{
-    //  brushTexture = (Texture2D)Resources.Load("Textures/brush_256/White1");
-    //}
+    
     if (shapeTexture == null)
     {
       shapeTexture = GetShapeTexture(2);
@@ -94,11 +74,6 @@ public class PhotonWhiteboard : PunBehaviour {
       }
     }
     texture.Apply();
-  }
-  // Update is called once per frame
-  void Update()
-  {
-
   }
 
   public void OnMouseDown()
@@ -163,9 +138,6 @@ public class PhotonWhiteboard : PunBehaviour {
     }
     boardTexture.Apply();
   }
-
-
-
   public void DrawBrush(int x, int y, byte drawColID, bool apply = true)
   {
     //Debug.Log("DrawBrush");

@@ -14,18 +14,32 @@ public class PSWand : MonoBehaviour
   private GameObject hoveredObject, heldObject;
   private Vector3 oldObjectPosition, effectiveVelocity;
   private float oldTriggerValue = 0f;
-  private bool moveButtonDown = false;
+  private bool moveButtonHeld = false;
+  private PhotonWhiteboard currentDrawingBoard = null;
+
+  private ToolBase currentTool;
+
+  public enum ButtonState
+  {
+    ButtonHeld,
+    ButtonDown,
+    ButtonUp,
+  }
 
   private void Start()
   {
+    
     controller = GetComponent<PSMoveController>();
     controller.OnButtonPSPressed += Controller_OnButtonPSPressed;
-    controller.OnButtonMovePressed += TeleportEventHandler;
+    controller.OnButtonMovePressed += MoveButtonPressed;
     controller.OnButtonMoveReleased += MoveButtonReleased;
     //controller.OnButtonCrossPressed += ;
     //controller.OnButtonCirclePressed += ;
     //controller.OnButtonSquarePressed += ;
     //controller.OnButtonTrianglePressed += ;
+
+    currentTool = gameObject.AddComponent<BoardDrawerTool>();
+    
   }
   
   private void Controller_OnButtonPSPressed(object sender, System.EventArgs e)
@@ -33,28 +47,41 @@ public class PSWand : MonoBehaviour
     controller.ResetYaw();
   }
 
-  private void TeleportEventHandler(object sender, EventArgs e)
+  private void MoveButtonPressed(object sender, EventArgs e)
   {
-    moveButtonDown = true;
-    var ray = new Ray(transform.position, transform.forward);
-    RaycastHit hitInfo;
-    if (Physics.Raycast(ray, out hitInfo, maxDistance))
+    print("MoveButtonPressed");
+    if (!moveButtonHeld)
     {
-      if (hitInfo.collider.gameObject.name == "Floor")
+      moveButtonHeld = true;
+      currentTool.StartTool();
+
+      RaycastHit? hitInfo = GetRaycastHit();
+      if (hitInfo != null)
       {
-        transform.parent.position = new Vector3(hitInfo.point.x, transform.parent.position.y, hitInfo.point.z);
+        if (hitInfo.Value.collider.gameObject.name == "Floor")
+        {
+          transform.parent.position = new Vector3(hitInfo.Value.point.x, transform.parent.position.y,
+            hitInfo.Value.point.z);
+        }
+        //else
+        //{
+        //  DrawTool(hitInfo, ButtonState.ButtonDown);
+        //}
       }
     }
   }
 
   private void MoveButtonReleased(object sender, EventArgs e)
   {
-    moveButtonDown = false;
+    moveButtonHeld = false;
+    currentTool.FinishTool();
+    //RaycastHit? hitInfo = GetRaycastHit();
+    //DrawTool(hitInfo, ButtonState.ButtonUp);
   }
 
   private void GrabObjectEventHandler()
   {
-    var r = GetRigidbodyFromRaycast();
+    var r = GetRaycastRigidbody();
     if (r != null)
     {
       heldObject = r.gameObject;
@@ -96,34 +123,41 @@ public class PSWand : MonoBehaviour
 
   private void FixedUpdate()
   {
-    var ray = new Ray(transform.position, transform.forward);
-    RaycastHit hitInfo;
-    GameObject raycastObject = null;
-    if (Physics.Raycast(ray, out hitInfo, maxDistance))
+    RaycastHit? hitInfo = GetRaycastHit();
+    if (moveButtonHeld)
     {
-      raycastObject = hitInfo.collider.gameObject;
-      DrawTool(raycastObject, hitInfo.point);
+      //DrawTool(hitInfo, ButtonState.ButtonHeld);
+      currentTool.ContinueTool();
     }
-    
     //SelectTool(raycastObject);
     //TranslateTool();
   }
 
-  private void DrawTool(GameObject raycastObject, Vector3 hitpoint)
+  private void DrawTool(RaycastHit? hitInfo, ButtonState btnState)
   {
-    
-    if (raycastObject != null)
+    if (btnState == ButtonState.ButtonUp)
     {
-      var board = raycastObject.GetComponent<PhotonWhiteboard>();
+      //finish line
+      if (currentDrawingBoard != null)
+      {
+        currentDrawingBoard.OnMouseUp();
+      }
+      currentDrawingBoard = null;
+    }
+    else if (hitInfo != null && hitInfo.Value.collider.gameObject != null)
+    {
+      var board = hitInfo.Value.collider.gameObject.GetComponent<PhotonWhiteboard>();
       if (board != null)
       {
-        if (moveButtonDown)//controller.GetPSButton(PSMoveButton.Move))
+        if (btnState == ButtonState.ButtonHeld && currentDrawingBoard == board)//controller.GetPSButton(PSMoveButton.Move))
         {
-          board.DrawOnBoard(hitpoint);
+          //continue line
+          currentDrawingBoard.DrawOnBoard(hitInfo.Value.point);
         }
-        else
+        else if (btnState == ButtonState.ButtonDown)
         {
-          board.OnMouseUp();
+          //start new line
+          currentDrawingBoard = board;
         }
       }
     }
@@ -132,7 +166,7 @@ public class PSWand : MonoBehaviour
   private void SelectTool(GameObject raycastObject)
   {
     if (heldObject != null) return;
-    //var r = GetRigidbodyFromRaycast();
+    //var r = GetRaycastRigidbody();
     var r = (raycastObject == null) ? null : raycastObject.GetComponent<Rigidbody>();
     if (r != null)
     {
@@ -166,8 +200,17 @@ public class PSWand : MonoBehaviour
     }
   }
 
+  public RaycastHit? GetRaycastHit()
+  {
+    RaycastHit hitInfo;
+    if (Physics.Raycast(transform.position, transform.forward, out hitInfo, maxDistance))
+    {
+      return hitInfo;
+    }
+    return null;
+  }
 
-  private Rigidbody GetRigidbodyFromRaycast()
+  private Rigidbody GetRaycastRigidbody()
   {
     var ray = new Ray(transform.position, transform.forward);
     RaycastHit hitInfo;
