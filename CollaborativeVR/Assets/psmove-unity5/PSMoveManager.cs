@@ -30,7 +30,9 @@
 * POSSIBILITY OF SUCH DAMAGE.
 **/
 
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
 #define LOAD_DLL_MANUALLY
+#endif // UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
 
 using UnityEngine;
 using System.Collections;
@@ -100,10 +102,6 @@ public class PSMoveManager : MonoBehaviour
         }
     }
 
-  public void Update()
-  {
-    PSMoveWorker.GetWorkerInstance().WorkerSettings.PSMoveOffset = this.PSMoveOffset;
-  }
     public void OnApplicationQuit()
     {
         if (ManagerInstance != null)
@@ -270,26 +268,34 @@ class PSMoveWorker
         #if LOAD_DLL_MANUALLY
         if (psmoveapiHandle == IntPtr.Zero)
         {
+            #if UNITY_EDITOR_WIN
             if (IntPtr.Size == 8)
             {
-                psmoveapiHandle = LoadLib("Assets/Plugins/x86_64/psmoveapi.dll");
+                psmoveapiHandle = LoadLib(Application.dataPath + "/Plugins/x86_64/psmoveapi.dll");
             }
             else
             {
-                psmoveapiHandle = LoadLib("Assets/Plugins/x86/psmoveapi.dll");
+                psmoveapiHandle = LoadLib(Application.dataPath + "/Plugins/x86/psmoveapi.dll");
             }
+            #elif UNITY_STANDALONE_WIN
+            psmoveapiHandle = LoadLib(Application.dataPath + "/Plugins/psmoveapi.dll");
+            #endif
         }
 
         if (psmoveapiTrackerHandle == IntPtr.Zero)
         {
+            #if UNITY_EDITOR_WIN
             if (IntPtr.Size == 8)
             {
-                psmoveapiTrackerHandle = LoadLib("Assets/Plugins/x86_64/psmoveapi_tracker.dll");
+                psmoveapiTrackerHandle = LoadLib(Application.dataPath + "/Plugins/x86_64/psmoveapi_tracker.dll");
             }
             else
             {
-                psmoveapiTrackerHandle = LoadLib("Assets/Plugins/x86/psmoveapi_tracker.dll");
+                psmoveapiTrackerHandle = LoadLib(Application.dataPath + "/Plugins/x86/psmoveapi_tracker.dll");
             }
+            #elif UNITY_STANDALONE_WIN
+            psmoveapiHandle = LoadLib(Application.dataPath + "/Plugins/psmoveapi_tracker.dll");
+            #endif
         }
         #endif // LOAD_DLL_MANUALLY
 

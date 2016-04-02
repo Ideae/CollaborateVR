@@ -92,7 +92,7 @@ public class PSMoveTest : MonoBehaviour
             }
 
             // Set the rumble based on how much the trigger is down
-            //moveComponent.SetRumble(moveComponent.TriggerValue);
+            moveComponent.SetRumble(moveComponent.TriggerValue);
         }
     }
 

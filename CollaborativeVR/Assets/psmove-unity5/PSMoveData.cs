@@ -228,12 +228,12 @@ public class PSMoveDataContext
             RawControllerData.ComponentRead();
 
             // If the worker thread posted new data then the sequence number should changes
-            //if (RawControllerData.SequenceNumber != CurrentSequenceNumber)
-            //{
+            if (RawControllerData.SequenceNumber != CurrentSequenceNumber)
+            {
                 // Actually update the previous controller state when we get new data
                 RawControllerPreviousTriggerValue = CurrentTriggerValue;
                 RawControllerPreviousButtons = CurrentButtons;
-            //}
+            }
 
             // Refresh the world space controller pose
             Pose.PoseUpdate(this, ParentGameObjectTransform);
@@ -326,21 +326,9 @@ public class PSMoveDataContext
             return false;
         }
     }
-
-  public bool GetPSButton(PSMoveButton psButton)
-  {
-    if (RawControllerData.IsValid() && RawControllerData.IsConnected)
-    {
-      return (RawControllerData.Buttons & (UInt32)psButton) != 0;
-    }
-    else
-    {
-      return false;
-    }
-  }
-
-  // Current Button State
-  public bool GetButtonTriangle()
+    
+    // Current Button State
+    public bool GetButtonTriangle()
     {
         if (RawControllerData.IsValid() && RawControllerData.IsConnected)
         {
@@ -363,7 +351,6 @@ public class PSMoveDataContext
             return false;
         }
     }
-    
     
     public bool GetButtonCross()
     {

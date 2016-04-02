@@ -1,39 +1,38 @@
-/**
-* PSMove API - A Unity5 plugin for the PSMove motion controller.
-*              Derived from the psmove-ue4 plugin by Chadwick Boulay
-*              and the UniMove plugin by the Copenhagen Game Collective
-* Copyright (C) 2015, PolyarcGames (http://www.polyarcgames.com)
-* 					   Brendan Walker (brendan@polyarcgames.com)
-* 
-* All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are met:
-*
-*    1. Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*
-*    2. Redistributions in binary form must reproduce the above copyright
-*       notice, this list of conditions and the following disclaimer in the
-*       documentation and/or other materials provided with the distribution.
-*
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-* AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-* IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-* ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-* LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-* CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-* ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-* POSSIBILITY OF SUCH DAMAGE.
-**/
+ /**
+ * PSMove API - A Unity5 plugin for the PSMove motion controller.
+ *              Derived from the psmove-ue4 plugin by Chadwick Boulay
+ *              and the UniMove plugin by the Copenhagen Game Collective
+ * Copyright (C) 2015, PolyarcGames (http://www.polyarcgames.com)
+ * 					   Brendan Walker (brendan@polyarcgames.com)
+ * 
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *    1. Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *    2. Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ **/
 
 using System;
 using UnityEngine;
 using System.Runtime.InteropServices;
-using System.Collections.Generic;
 
 public class PSMoveController : MonoBehaviour
 {
@@ -63,14 +62,8 @@ public class PSMoveController : MonoBehaviour
     // Used to send and receive controller data from the PSMoveWorker thread
     private PSMoveDataContext dataContext;
 
-    public bool useInterpolation;
-    public float lerpRate;
-    private Vector3 lerpTarget;
-
-  
-
-  #region Controller Properties
-  public bool IsConnected
+    #region Controller Properties
+    public bool IsConnected
     {
         get { return dataContext.GetIsConnected(); }
     }
@@ -130,25 +123,17 @@ public class PSMoveController : MonoBehaviour
         get { return dataContext.GetButtonMove(); }
     }
 
-  public bool GetPSButton(PSMoveButton psButton)
-  {
-    return dataContext.GetPSButton(psButton);
-  }
-
-  private Dictionary<PSMoveButton, bool> isDownDict = new Dictionary<PSMoveButton, bool>();
-
-
     // Debug
-  public bool ShowTrackingDebug;
+    public bool ShowTrackingDebug;
     public bool ShowHMDFrustumDebug;
-    
-  #endregion
 
-  #region Controller Actions
-  /// <summary>
-  /// Converts the current orientation to the identity orientation
-  /// </summary
-  public void ResetYaw()
+    #endregion
+
+    #region Controller Actions
+    /// <summary>
+    /// Converts the current orientation to the identity orientation
+    /// </summary
+    public void ResetYaw()
     {
         if (dataContext != null)
         {
@@ -199,13 +184,11 @@ public class PSMoveController : MonoBehaviour
             PSMoveManager.GetManagerInstance().ReleasePSMove(dataContext);
         }
     }
-
-  void Update() 
+	
+	void Update() 
 	{
         // Get the latest state from the 
         dataContext.ComponentRead(this.gameObject.transform.parent);
-
-    //Debug.Log("hello");
 
         // Button Pressed Handlers
         if (OnButtonTrianglePressed != null && dataContext.GetButtonTrianglePressed())
@@ -243,33 +226,18 @@ public class PSMoveController : MonoBehaviour
         if (OnButtonMoveReleased != null && dataContext.GetButtonMoveReleased())
             OnButtonMoveReleased(this, EventArgs.Empty);
 
-        bool seen = dataContext.GetIsSeenByTracker();
         // Update the transform of this game object based on the new pose
-
-        if (useInterpolation)
+        if (dataContext.GetIsSeenByTracker())
         {
-          if (seen)
-          {
-            lerpTarget = dataContext.Pose.WorldPosition;
-          }
-          this.gameObject.transform.position = Vector3.Lerp(transform.position, lerpTarget, lerpRate);
+            this.gameObject.transform.position = dataContext.Pose.WorldPosition;
         }
-        else if (seen)
-        {
-          this.gameObject.transform.position = dataContext.Pose.WorldPosition;
-        }
-
-
-
-
-
         this.gameObject.transform.rotation = dataContext.Pose.WorldOrientation;
 
-            // Show the HMD frus
-            if (ShowHMDFrustumDebug)
-            {
-                PSMoveUtility.DebugDrawHMDFrustum(this.gameObject.transform.parent);
-            }
+        // Show the HMD frus
+        if (ShowHMDFrustumDebug)
+        {
+            PSMoveUtility.DebugDrawHMDFrustum(this.gameObject.transform.parent);
         }
+    }
     #endregion
 }
