@@ -50,24 +50,22 @@ public class PSWand : MonoBehaviour
   private void MoveButtonPressed(object sender, EventArgs e)
   {
     print("MoveButtonPressed");
-    if (!moveButtonHeld)
-    {
-      moveButtonHeld = true;
-      currentTool.StartTool();
+    //if (moveButtonHeld) return;
+    moveButtonHeld = true;
+    currentTool.StartTool();
 
-      RaycastHit? hitInfo = GetRaycastHit();
-      if (hitInfo != null)
+    RaycastHit? hitInfo = GetRaycastHit();
+    if (hitInfo != null)
+    {
+      if (hitInfo.Value.collider.gameObject.name == "Floor")
       {
-        if (hitInfo.Value.collider.gameObject.name == "Floor")
-        {
-          transform.parent.position = new Vector3(hitInfo.Value.point.x, transform.parent.position.y,
-            hitInfo.Value.point.z);
-        }
-        //else
-        //{
-        //  DrawTool(hitInfo, ButtonState.ButtonDown);
-        //}
+        transform.parent.position = new Vector3(hitInfo.Value.point.x, transform.parent.position.y,
+          hitInfo.Value.point.z);
       }
+      //else
+      //{
+      //  DrawTool(hitInfo, ButtonState.ButtonDown);
+      //}
     }
   }
 

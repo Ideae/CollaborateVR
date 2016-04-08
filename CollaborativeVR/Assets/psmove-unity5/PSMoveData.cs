@@ -228,12 +228,13 @@ public class PSMoveDataContext
             RawControllerData.ComponentRead();
 
             // If the worker thread posted new data then the sequence number should changes
-            if (RawControllerData.SequenceNumber != CurrentSequenceNumber)
-            {
+            //EDIT
+            //if (RawControllerData.SequenceNumber != CurrentSequenceNumber)
+            //{
                 // Actually update the previous controller state when we get new data
                 RawControllerPreviousTriggerValue = CurrentTriggerValue;
                 RawControllerPreviousButtons = CurrentButtons;
-            }
+            //}
 
             // Refresh the world space controller pose
             Pose.PoseUpdate(this, ParentGameObjectTransform);
