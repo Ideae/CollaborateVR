@@ -67,6 +67,19 @@ public class UserActionSystem
     var actionList = GetActionList(playerId);
     actionList.RedoNextAction();
   }
+
+  public void DeleteAllActionsPlayer(int playerId)
+  {
+    var actionList = GetActionList(playerId);
+    actionList.DeleteAllActions();
+  }
+  public void DeleteAllActions(int playerId)
+  {
+    foreach (var actionList in actionListsDict.Values)
+    {
+      actionList.DeleteAllActions();
+    }
+  }
 }
 
 public class UserActionList
@@ -106,7 +119,13 @@ public class UserActionList
         //remove actions above currentAction if they exist, so you can no longer redo them
         if (index != -1 && index < actionList.Count - 1)
         {
-          actionList.RemoveRange(index + 1, actionList.Count - index - 1);
+          int min = index + 1, max = actionList.Count - index - 1;
+          for (int i = min; i <= max; i++)
+          {
+            var a = actionList.ElementAt(i);
+            a.DeleteAction();
+          }
+          actionList.RemoveRange(min, max);
         }
       }
       actionList.Add(action);
@@ -142,12 +161,24 @@ public class UserActionList
       }
     }
   }
+
+  public void DeleteAllActions()
+  {
+    for (int i = 0; i < actionList.Count; i++)
+    {
+      var action = actionList.ElementAt(i);
+      action.DeleteAction();
+    }
+    actionList = new List<UserAction>();
+    topAction = null;
+  }
 }
 
 public abstract class UserAction
 {
   public abstract void PerformAction();
   public abstract void UndoAction();
+  public abstract void DeleteAction();
 }
 
 public class DrawStrokeAction : UserAction
@@ -160,6 +191,11 @@ public class DrawStrokeAction : UserAction
   public override void UndoAction()
   {
     lineData.lineRenderer.gameObject.SetActive(false);
+  }
+
+  public override void DeleteAction()
+  {
+    GameObject.Destroy(lineData.lineRenderer.gameObject);
   }
 }
 
@@ -205,17 +241,23 @@ public class LineWhiteboard : PunBehaviour {
   {
     actionSystem.RedoNextAction(info.sender.ID);
   }
+  [PunRPC]
+  public void ClearAllRPC(PhotonMessageInfo info)
+  {
+    actionSystem.DeleteAllActionsPlayer(info.sender.ID);
+  }
 
+  //Stroke Implementation
   private Vector3 oldHitPoint;
-  //Line Implementation
-  public void DrawLineOnBoard(Vector3 hitpoint, PSWand.ButtonState btnState, int currentLineID)
+  //private float minDrawDistSquared = 0.00005f;
+  public void DrawStrokeOnBoard(Vector3 hitpoint, PSWand.ButtonState btnState, int currentLineID)
   {
     if (btnState == PSWand.ButtonState.ButtonUp)
     {
       oldHitPoint = -Vector3.one;
-      photonView.RPC("FinishLineOnBoardCallback", PhotonTargets.All, new object[] { currentLineID });
+      photonView.RPC("FinishStrokeOnBoardCallback", PhotonTargets.All, new object[] { currentLineID });
     }
-    else if (oldHitPoint != hitpoint) //todo: floating point error? check that distance is great enough instead?
+    else if (oldHitPoint != hitpoint)//(Vector3.SqrMagnitude(oldHitPoint - hitpoint) > minDrawDistSquared) //todo: floating point error? check that distance is great enough instead?
     {
       var coll = transform.GetComponent<Collider>();
       //float x = (hitpoint.x - coll.bounds.min.x)/coll.bounds.size.x;
@@ -224,11 +266,11 @@ public class LineWhiteboard : PunBehaviour {
       float y = Vector3.Dot(transform.up, hitpoint - transform.position);
       if (btnState == PSWand.ButtonState.ButtonDown)
       {
-        photonView.RPC("StartLineOnBoardCallback", PhotonTargets.All, new object[] {x, y, currentLineID, drawColorIndex, brushSize });
+        photonView.RPC("StartStrokeOnBoardCallback", PhotonTargets.All, new object[] {x, y, currentLineID, drawColorIndex, brushSize });
       }
       else if (btnState == PSWand.ButtonState.ButtonHeld)
       {
-        photonView.RPC("ContinueLineOnBoardCallback", PhotonTargets.All, new object[] { x, y, currentLineID });
+        photonView.RPC("ContinueStrokeOnBoardCallback", PhotonTargets.All, new object[] { x, y, currentLineID });
       }
       oldHitPoint = hitpoint;
     }
@@ -236,9 +278,9 @@ public class LineWhiteboard : PunBehaviour {
 
   private float outwardsDist = 0.01f;
   [PunRPC]
-  public void StartLineOnBoardCallback(float x, float y, int currentLineID, byte colorByte, byte widthByte, PhotonMessageInfo info)
+  public void StartStrokeOnBoardCallback(float x, float y, int currentLineID, byte colorByte, byte widthByte, PhotonMessageInfo info)
   {
-    print("StartLineOnBoardCallback");
+    //print("StartStrokeOnBoardCallback");
     Vector3 point = transform.position + transform.right*x + transform.up*y - transform.forward * outwardsDist;
     GameObject g = (GameObject)Instantiate(lineRendererPrefab, point, Quaternion.identity);
     LineData lineData = new LineData(currentLineID, colorByte, g.GetComponent<LineRenderer>());
@@ -246,9 +288,9 @@ public class LineWhiteboard : PunBehaviour {
     //lineDatas[currentLineID] = lineData;
     lineData.lineRenderer.useWorldSpace = true;
     lineData.lineRenderer.SetVertexCount(1);
-    lineData.lineRenderer.SetPosition(0, point);//should its transform position be at the origin for this to work?
+    lineData.lineRenderer.SetPosition(0, point);
     float width = widthByte / 200f;
-    print("width: " + width);
+    //print("width: " + width);
     lineData.lineRenderer.SetWidth(width, width);
     Color col = colorArray[colorByte];
     lineData.lineRenderer.SetColors(col, col);
@@ -259,9 +301,9 @@ public class LineWhiteboard : PunBehaviour {
 
   }
   [PunRPC]
-  public void ContinueLineOnBoardCallback(float x, float y, int currentLineID, PhotonMessageInfo info)
+  public void ContinueStrokeOnBoardCallback(float x, float y, int currentLineID, PhotonMessageInfo info)
   {
-    //print("ContinueLineOnBoardCallback");
+    //print("ContinueStrokeOnBoardCallback");
     DrawStrokeAction action = (DrawStrokeAction) actionSystem.GetUpdatingAction(info.sender.ID, currentLineID);
     if (action != null)
     {
@@ -274,11 +316,79 @@ public class LineWhiteboard : PunBehaviour {
 
   }
   [PunRPC]
-  public void FinishLineOnBoardCallback(int currentLineID, PhotonMessageInfo info)
+  public void FinishStrokeOnBoardCallback(int currentLineID, PhotonMessageInfo info)
   {
-    //print("FinishLineOnBoardCallback");
+    //print("FinishStrokeOnBoardCallback");
     actionSystem.CompleteAction(info.sender.ID, currentLineID);
   }
 
-  //public void 
+
+
+  //Line Implementation
+  //todo: use different oldHitPoint?
+  //private float minDrawDistSquared = 0.00005f;
+  public void DrawLineOnBoard(Vector3 hitpoint, PSWand.ButtonState btnState, int currentLineID)
+  {
+    if (btnState == PSWand.ButtonState.ButtonUp)
+    {
+      oldHitPoint = -Vector3.one;
+      photonView.RPC("FinishLineOnBoardCallback", PhotonTargets.All, new object[] { currentLineID });
+    }
+    else if (oldHitPoint != hitpoint)//(Vector3.SqrMagnitude(oldHitPoint - hitpoint) > minDrawDistSquared) //todo: floating point error? check that distance is great enough instead?
+    {
+      var coll = transform.GetComponent<Collider>();
+      //float x = (hitpoint.x - coll.bounds.min.x)/coll.bounds.size.x;
+      //float y = (hitpoint.y - coll.bounds.min.y)/coll.bounds.size.y;
+      float x = Vector3.Dot(transform.right, hitpoint - transform.position);
+      float y = Vector3.Dot(transform.up, hitpoint - transform.position);
+      if (btnState == PSWand.ButtonState.ButtonDown)
+      {
+        photonView.RPC("StartLineOnBoardCallback", PhotonTargets.All, new object[] { x, y, currentLineID, drawColorIndex, brushSize });
+      }
+      else if (btnState == PSWand.ButtonState.ButtonHeld)
+      {
+        photonView.RPC("ContinueLineOnBoardCallback", PhotonTargets.All, new object[] { x, y, currentLineID });
+      }
+      oldHitPoint = hitpoint;
+    }
+  }
+  
+  [PunRPC]
+  public void StartLineOnBoardCallback(float x, float y, int currentLineID, byte colorByte, byte widthByte, PhotonMessageInfo info)
+  {
+    Vector3 point = transform.position + transform.right * x + transform.up * y - transform.forward * outwardsDist;
+    GameObject g = (GameObject)Instantiate(lineRendererPrefab, point, Quaternion.identity);
+    LineData lineData = new LineData(currentLineID, colorByte, g.GetComponent<LineRenderer>());
+    
+    lineData.lineRenderer.useWorldSpace = true;
+    lineData.lineRenderer.SetVertexCount(2);
+    lineData.lineRenderer.SetPosition(0, point);
+    lineData.lineRenderer.SetPosition(1, point);
+    float width = widthByte / 200f;
+    lineData.lineRenderer.SetWidth(width, width);
+    Color col = colorArray[colorByte];
+    lineData.lineRenderer.SetColors(col, col);
+
+    DrawStrokeAction action = new DrawStrokeAction();
+    action.lineData = lineData;
+    actionSystem.AddUpdatingAction(info.sender.ID, currentLineID, action);
+
+  }
+  [PunRPC]
+  public void ContinueLineOnBoardCallback(float x, float y, int currentLineID, PhotonMessageInfo info)
+  {
+    DrawStrokeAction action = (DrawStrokeAction)actionSystem.GetUpdatingAction(info.sender.ID, currentLineID);
+    if (action != null)
+    {
+      Vector3 point = transform.position + transform.right * x + transform.up * y - transform.forward * outwardsDist;
+      LineData lineData = action.lineData;
+      lineData.lineRenderer.SetPosition(1, point);
+    }
+
+  }
+  [PunRPC]
+  public void FinishLineOnBoardCallback(int currentLineID, PhotonMessageInfo info)
+  {
+    actionSystem.CompleteAction(info.sender.ID, currentLineID);
+  }
 }

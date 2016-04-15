@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class PSWand : MonoBehaviour
@@ -17,7 +18,9 @@ public class PSWand : MonoBehaviour
   private bool moveButtonHeld = false;
   private PhotonWhiteboard currentDrawingBoard = null;
 
+  private Dictionary<Type, ToolBase> toolDict = new Dictionary<Type, ToolBase>();  
   private ToolBase currentTool;
+
 
   public enum ButtonState
   {
@@ -33,13 +36,25 @@ public class PSWand : MonoBehaviour
     controller.OnButtonPSPressed += Controller_OnButtonPSPressed;
     controller.OnButtonMovePressed += MoveButtonPressed;
     controller.OnButtonMoveReleased += MoveButtonReleased;
+    controller.OnButtonSquarePressed += ClearAll;
     //controller.OnButtonCrossPressed += ;
-    //controller.OnButtonSquarePressed += ;
     controller.OnButtonTrianglePressed += UndoAction;
     controller.OnButtonCirclePressed += RedoAction;
 
-    currentTool = gameObject.AddComponent<BoardDrawerTool>();
-    
+    currentTool = AddTool<BoardDrawerTool>();
+    AddTool<BoardLineTool>();
+
+  }
+
+  private ToolBase AddTool<T>() where T : ToolBase
+  {
+    Type t = typeof (T);
+    if (!toolDict.ContainsKey(t))
+    {
+      toolDict[t] = gameObject.AddComponent<T>();
+    }
+    return toolDict[t];
+
   }
 
   private void UndoAction(object sender, System.EventArgs e)
@@ -64,6 +79,18 @@ public class PSWand : MonoBehaviour
       if (lineWhiteboard != null)
       {
         lineWhiteboard.photonView.RPC("RedoRPC", PhotonTargets.All, new object[] { });
+      }
+    }
+  }
+  private void ClearAll(object sender, System.EventArgs e)
+  {
+    RaycastHit? hit = GetRaycastHit();
+    if (hit != null)
+    {
+      var lineWhiteboard = hit.Value.collider.gameObject.GetComponent<LineWhiteboard>();
+      if (lineWhiteboard != null)
+      {
+        lineWhiteboard.photonView.RPC("ClearAllRPC", PhotonTargets.All, new object[] { });
       }
     }
   }
@@ -128,18 +155,29 @@ public class PSWand : MonoBehaviour
   
   private void Update()
   {
-     bool seen = controller.IsTracking;
+    bool seen = controller.IsTracking;
+
+    if (Input.GetKeyDown(KeyCode.Alpha1))
+    {
+      currentTool = toolDict[typeof (BoardDrawerTool)];
+    }
+    else if (Input.GetKeyDown(KeyCode.Alpha2))
+    {
+      currentTool = toolDict[typeof(BoardLineTool)];
+    }
+
+
     //controller.SetRumble(seen ? 0f : 0.5f);
 
-    //if (controller.TriggerValue > triggerThreshold && oldTriggerValue <= triggerThreshold)
-    //{
-    //  GrabObjectEventHandler();
-    //}
-    //else if (controller.TriggerValue < triggerThreshold && oldTriggerValue > triggerThreshold)
-    //{
-    //  ReleaseObjectEventHandler();
-    //}
-    //oldTriggerValue = controller.TriggerValue;
+      //if (controller.TriggerValue > triggerThreshold && oldTriggerValue <= triggerThreshold)
+      //{
+      //  GrabObjectEventHandler();
+      //}
+      //else if (controller.TriggerValue < triggerThreshold && oldTriggerValue > triggerThreshold)
+      //{
+      //  ReleaseObjectEventHandler();
+      //}
+      //oldTriggerValue = controller.TriggerValue;
   }
 
   private void FixedUpdate()

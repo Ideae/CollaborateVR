@@ -1,18 +1,21 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class BoardDrawerTool : ToolBase {
+public class BoardLineTool : ToolBase
+{
   private LineWhiteboard currentDrawingBoard = null;
   private int currentLineID = 0;
   // Use this for initialization
-  void Start () {
-	
-	}
-	
-	// Update is called once per frame
-	void Update () {
+  void Start()
+  {
 
-	}
+  }
+
+  // Update is called once per frame
+  void Update()
+  {
+
+  }
 
   public override void StartTool()
   {
@@ -25,9 +28,9 @@ public class BoardDrawerTool : ToolBase {
       {
         currentDrawingBoard = board;
         currentLineID++;
-        currentDrawingBoard.DrawStrokeOnBoard(hitInfo.Value.point, PSWand.ButtonState.ButtonDown, currentLineID);
-        
-        
+        currentDrawingBoard.DrawLineOnBoard(hitInfo.Value.point, PSWand.ButtonState.ButtonDown, currentLineID);
+
+
       }
     }
   }
@@ -40,7 +43,7 @@ public class BoardDrawerTool : ToolBase {
       var board = hitInfo.Value.collider.gameObject.GetComponent<LineWhiteboard>();
       if (currentDrawingBoard != null && currentDrawingBoard == board)
       {
-        currentDrawingBoard.DrawStrokeOnBoard(hitInfo.Value.point, PSWand.ButtonState.ButtonHeld, currentLineID);
+        currentDrawingBoard.DrawLineOnBoard(hitInfo.Value.point, PSWand.ButtonState.ButtonHeld, currentLineID);
       }
     }
   }
@@ -49,7 +52,7 @@ public class BoardDrawerTool : ToolBase {
   {
     if (currentDrawingBoard != null)
     {
-      currentDrawingBoard.DrawStrokeOnBoard(Vector3.zero, PSWand.ButtonState.ButtonUp, currentLineID);
+      currentDrawingBoard.DrawLineOnBoard(Vector3.zero, PSWand.ButtonState.ButtonUp, currentLineID);
     }
     currentDrawingBoard = null;
   }
