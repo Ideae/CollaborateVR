@@ -56,7 +56,7 @@ public class PSMoveManager : MonoBehaviour
 {
     public bool EmitHitchLogging= false;
     public bool UseManualExposure= false;
-    public PSMoveTracker_Smoothing_Type Filter3DType = PSMoveTracker_Smoothing_Type.Smoothing_LowPass;
+    public PSMove_PositionFilter_Type FilterType = PSMove_PositionFilter_Type.PositionFilter_LowPass;
     public PSMoveTrackingColor InitialTrackingColor = PSMoveTrackingColor.magenta;
     public Vector3 PSMoveOffset = new Vector3();
     [Range(0.0f, 1.0f)]
@@ -95,7 +95,7 @@ public class PSMoveManager : MonoBehaviour
                     ManualExposureValue = this.ManualExposureValue,
                     InitialTrackingColor = this.InitialTrackingColor,
                     PSMoveOffset = this.PSMoveOffset,
-                    Filter3DType = this.Filter3DType,
+                    FilterType = this.FilterType,
                     bTrackerEnabled = this.TrackerEnabled,
                     ApplicationDataPath = Application.dataPath
                 });
@@ -119,6 +119,7 @@ public class PSMoveManager : MonoBehaviour
 // and references to the shared (controller independent) data and the controller(s) data.
 class WorkerContext
 {
+    public static int MAX_TRACKER_COUNT = 8;
     public static float CONTROLLER_COUNT_POLL_INTERVAL = 1000.0f; // milliseconds
 
     public PSMoveWorkerSettings WorkerSettings;
@@ -128,12 +129,14 @@ class WorkerContext
     public int PSMoveCount;
     public Stopwatch moveCountCheckTimer;
 
-    public IntPtr PSMoveTracker; // PSMoveTracker*
+    public IntPtr[] PSMoveTrackers; // PSMoveTracker*
+    public IntPtr[] PSMoveFusions; // PSMoveFusion*
+    public int TrackerCount;
     public int TrackerWidth;
     public int TrackerHeight;
 
-    public IntPtr PSMoveFusion; // PSMoveFusion*
-    
+    public IntPtr PSMovePositionFilter; // PSMovePositionFilter*
+
     // Constructor
     public WorkerContext(PSMoveRawControllerData_TLS[] controllerDataArray, PSMoveWorkerSettings settings)
     {
@@ -152,10 +155,19 @@ class WorkerContext
         PSMoveCount = 0;
         moveCountCheckTimer.Reset();
         moveCountCheckTimer.Start();
-        PSMoveTracker = IntPtr.Zero;
+
+        PSMoveTrackers = new IntPtr[MAX_TRACKER_COUNT];
+        PSMoveFusions = new IntPtr[MAX_TRACKER_COUNT];
+        for (int tracker_index = 0; tracker_index < MAX_TRACKER_COUNT; ++tracker_index)
+        {
+            PSMoveTrackers[tracker_index] = IntPtr.Zero;
+            PSMoveFusions[tracker_index] = IntPtr.Zero;
+        }
+        TrackerCount = 0;
         TrackerWidth = 0;
         TrackerHeight = 0;
-        PSMoveFusion = IntPtr.Zero;
+
+        PSMovePositionFilter = IntPtr.Zero;
     }
 };
 
@@ -164,7 +176,7 @@ class PSMoveWorkerSettings
     public bool bUseManualExposure;
     public float ManualExposureValue;
     public PSMoveTrackingColor InitialTrackingColor;
-    public PSMoveTracker_Smoothing_Type Filter3DType;
+    public PSMove_PositionFilter_Type FilterType;
     public Vector3 PSMoveOffset;
     public bool bTrackerEnabled;
     public string ApplicationDataPath;
@@ -179,7 +191,7 @@ class PSMoveWorkerSettings
         bUseManualExposure= false;
         ManualExposureValue= 0.0f;
         InitialTrackingColor= PSMoveTrackingColor.cyan;
-        Filter3DType= PSMoveTracker_Smoothing_Type.Smoothing_LowPass;
+        FilterType = PSMove_PositionFilter_Type.PositionFilter_LowPass;
         PSMoveOffset= Vector3.zero;
         bTrackerEnabled = true;
         ApplicationDataPath = "";
@@ -219,8 +231,8 @@ class PSMoveWorker
             WorkerControllerDataArray[i] = new PSMoveRawControllerData_TLS(WorkerControllerDataArray_Concurrent[i]);
         }
 
-        psmoveapiHandle = IntPtr.Zero;
-        psmoveapiTrackerHandle = IntPtr.Zero;
+        psmoveapiSharedLibHandle = IntPtr.Zero;
+        psmoveapiTrackerSharedLibHandle = IntPtr.Zero;
     }
 
     public void OnGameStarted(PSMoveWorkerSettings workerSettings)
@@ -266,35 +278,35 @@ class PSMoveWorker
     private void WorkerSetup(PSMoveWorkerSettings workerSettings)
     {
         #if LOAD_DLL_MANUALLY
-        if (psmoveapiHandle == IntPtr.Zero)
+        if (psmoveapiSharedLibHandle == IntPtr.Zero)
         {
             #if UNITY_EDITOR_WIN
             if (IntPtr.Size == 8)
             {
-                psmoveapiHandle = LoadLib(Application.dataPath + "/Plugins/x86_64/psmoveapi.dll");
+                psmoveapiSharedLibHandle = LoadLib(Application.dataPath + "/Plugins/x86_64/psmoveapi.dll");
             }
             else
             {
-                psmoveapiHandle = LoadLib(Application.dataPath + "/Plugins/x86/psmoveapi.dll");
+                psmoveapiSharedLibHandle = LoadLib(Application.dataPath + "/Plugins/x86/psmoveapi.dll");
             }
             #elif UNITY_STANDALONE_WIN
-            psmoveapiHandle = LoadLib(Application.dataPath + "/Plugins/psmoveapi.dll");
+            psmoveapiSharedLibHandle = LoadLib(Application.dataPath + "/Plugins/psmoveapi.dll");
             #endif
         }
 
-        if (psmoveapiTrackerHandle == IntPtr.Zero)
+        if (psmoveapiTrackerSharedLibHandle == IntPtr.Zero)
         {
             #if UNITY_EDITOR_WIN
             if (IntPtr.Size == 8)
             {
-                psmoveapiTrackerHandle = LoadLib(Application.dataPath + "/Plugins/x86_64/psmoveapi_tracker.dll");
+                psmoveapiTrackerSharedLibHandle = LoadLib(Application.dataPath + "/Plugins/x86_64/psmoveapi_tracker.dll");
             }
             else
             {
-                psmoveapiTrackerHandle = LoadLib(Application.dataPath + "/Plugins/x86/psmoveapi_tracker.dll");
+                psmoveapiTrackerSharedLibHandle = LoadLib(Application.dataPath + "/Plugins/x86/psmoveapi_tracker.dll");
             }
             #elif UNITY_STANDALONE_WIN
-            psmoveapiHandle = LoadLib(Application.dataPath + "/Plugins/psmoveapi_tracker.dll");
+            psmoveapiSharedLibHandle = LoadLib(Application.dataPath + "/Plugins/psmoveapi_tracker.dll");
             #endif
         }
         #endif // LOAD_DLL_MANUALLY
@@ -322,16 +334,16 @@ class PSMoveWorker
         }
 
         //Free any manually loaded DLLs
-        if (psmoveapiTrackerHandle != IntPtr.Zero)
+        if (psmoveapiTrackerSharedLibHandle != IntPtr.Zero)
         {
-            FreeLibrary(psmoveapiTrackerHandle);
-            psmoveapiTrackerHandle = IntPtr.Zero;
+            FreeLibrary(psmoveapiTrackerSharedLibHandle);
+            psmoveapiTrackerSharedLibHandle = IntPtr.Zero;
         }
 
-        if (psmoveapiHandle != IntPtr.Zero)
+        if (psmoveapiSharedLibHandle != IntPtr.Zero)
         {
-            FreeLibrary(psmoveapiHandle);
-            psmoveapiHandle = IntPtr.Zero;
+            FreeLibrary(psmoveapiSharedLibHandle);
+            psmoveapiSharedLibHandle = IntPtr.Zero;
         }
     }
 
@@ -412,7 +424,10 @@ class PSMoveWorker
             {
                 using (new PSMoveHitchWatchdog("PSMoveWorker_UpdateImage", 33 * PSMoveHitchWatchdog.MICROSECONDS_PER_MILLISECOND))
                 {
-                    PSMoveAPI.psmove_tracker_update_image(Context.PSMoveTracker); // Sometimes libusb crashes here.
+                    for (int tracker_index = 0; tracker_index < Context.TrackerCount; ++tracker_index )
+                    {
+                        PSMoveAPI.psmove_tracker_update_image(Context.PSMoveTrackers[tracker_index]); // Sometimes libusb crashes here.
+                    }
                 }
             }
 
@@ -427,8 +442,10 @@ class PSMoveWorker
                     {
                         ControllerUpdatePositions(
                             WorkerSettings,
-                            Context.PSMoveTracker,
-                            Context.PSMoveFusion,
+                            Context.PSMoveTrackers,
+                            Context.PSMoveFusions,
+                            Context.TrackerCount,
+                            Context.PSMovePositionFilter,
                             Context.PSMoves[psmove_id],
                             localControllerData);
                     }
@@ -470,7 +487,34 @@ class PSMoveWorker
                         if (WorkerSettings.bTrackerEnabled)
                         {
                             UnityEngine.Debug.Log("PSMoveWorker:: CYCLE COLOUR");
-                            PSMoveAPI.psmove_tracker_cycle_color(Context.PSMoveTracker, Context.PSMoves[psmove_id]);
+
+                            // Attempt to cycle the color for each tracker and re-acquire tracking
+                            int happyTrackerCount = 0;
+                            for (int tracker_index = 0; tracker_index < Context.TrackerCount; ++tracker_index)
+                            {
+                                PSMoveAPI.psmove_tracker_cycle_color(
+                                    Context.PSMoveTrackers[tracker_index], Context.PSMoves[psmove_id]);
+
+                                PSMoveTracker_Status tracker_status =
+                                    PSMoveAPI.psmove_tracker_get_status(
+                                        Context.PSMoveTrackers[tracker_index],
+                                        Context.PSMoves[psmove_id]);
+
+                                if (tracker_status == PSMoveTracker_Status.Tracker_CALIBRATED ||
+                                    tracker_status == PSMoveTracker_Status.Tracker_TRACKING)
+                                {
+                                    ++happyTrackerCount;
+                                }
+                            }
+
+                            // If not all trackers re-acquired,
+                            // mark the controller as no having tracking enabled,
+                            // and let WorkerContextUpdateControllerConnections() try 
+                            // and reacquire next update.
+                            if (happyTrackerCount < Context.TrackerCount)
+                            {
+                                Context.WorkerControllerDataArray[psmove_id].IsTrackingEnabled = false;
+                            }
                         }
                         else
                         {
@@ -526,45 +570,88 @@ class PSMoveWorker
             }
 
             settings.use_fitEllipse = 1;
+            settings.filter_do_2d_r = 0;
+            settings.filter_do_2d_xy = 0;
             settings.camera_mirror = PSMove_Bool.PSMove_True;
             settings.color_list_start_ind = (int)WorkerSettings.InitialTrackingColor;
-            context.PSMoveTracker = PSMoveAPI.psmove_tracker_new_with_settings(ref settings);
-        }
 
-        if (context.PSMoveTracker != IntPtr.Zero)
-        {
-            UnityEngine.Debug.Log("PSMove tracker initialized.");
+            context.TrackerCount = 0;
+            for (int tracker_index = 0; tracker_index < WorkerContext.MAX_TRACKER_COUNT; ++tracker_index)
+            {
+                context.PSMoveTrackers[tracker_index] = 
+                    PSMoveAPI.psmove_tracker_new_with_camera_and_settings(tracker_index, ref settings);
 
-            PSMoveAPI.PSMoveTrackerSmoothingSettings smoothing_settings = new PSMoveAPI.PSMoveTrackerSmoothingSettings();
-            PSMoveAPI.psmove_tracker_get_smoothing_settings(context.PSMoveTracker, ref smoothing_settings);
-            smoothing_settings.filter_do_2d_r = 0;
-            smoothing_settings.filter_do_2d_xy = 0;
-            smoothing_settings.filter_3d_type = WorkerSettings.Filter3DType;
-            PSMoveAPI.psmove_tracker_set_smoothing_settings(context.PSMoveTracker, ref smoothing_settings);
+                if (context.PSMoveTrackers[tracker_index] != IntPtr.Zero)
+                {
+                    UnityEngine.Debug.Log(string.Format("PSMove tracker({0}) initialized.", tracker_index));
+                    ++context.TrackerCount;
 
-            PSMoveAPI.psmove_tracker_get_size(context.PSMoveTracker, ref context.TrackerWidth, ref context.TrackerHeight);
-            UnityEngine.Debug.Log(string.Format("Camera Dimensions: {0} x {1}", context.TrackerWidth, context.TrackerHeight));
-        }
-        else
-        {
-            PSMoveTracker_ErrorCode errorCode= PSMoveAPI.psmove_tracker_get_last_error();
+                    PSMoveAPI.psmove_tracker_get_size(
+                        context.PSMoveTrackers[tracker_index], 
+                        ref context.TrackerWidth, ref context.TrackerHeight);
+                    UnityEngine.Debug.Log(string.Format("Camera Dimensions: {0} x {1}", context.TrackerWidth, context.TrackerHeight));
+                }
+                else
+                {
+                    PSMoveTracker_ErrorCode errorCode = PSMoveAPI.psmove_tracker_get_last_error();
 
-            UnityEngine.Debug.LogError(string.Format("PSMove tracker failed to initialize: {0}", errorCode.ToString()));
-            success = false;
+                    UnityEngine.Debug.Log(string.Format("PSMove tracker({0}) not available: {1}", 
+                        tracker_index, errorCode.ToString()));
+                    break;
+                }
+            }
+
+            if (context.TrackerCount <= 0)
+            {
+                UnityEngine.Debug.LogError(string.Format("Failed to open any trackers"));
+                success = false;
+            }
         }
 
         // Initialize fusion API if the tracker started
         if (success)
         {
-            context.PSMoveFusion = PSMoveAPI.psmove_fusion_new(context.PSMoveTracker, 1.0f, 1000.0f);
-
-            if (context.PSMoveFusion != IntPtr.Zero)
+            for (int tracker_index = 0; tracker_index < context.TrackerCount; ++tracker_index)
             {
-                UnityEngine.Debug.Log("PSMove fusion initialized.");
+                context.PSMoveFusions[tracker_index] = 
+                    PSMoveAPI.psmove_fusion_new(context.PSMoveTrackers[tracker_index], 1.0f, 1000.0f);
+
+                if (context.PSMoveFusions[tracker_index] != IntPtr.Zero)
+                {
+                    UnityEngine.Debug.Log(string.Format("PSMove fusion({0}) initialized.", tracker_index));
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError(string.Format("PSMove fusion({0}) failed to initialize.", tracker_index));
+                    success = false;
+                    break;
+                }
+            }
+        }
+
+        // Initialize a position filter to smooth out the tracking data
+        if (success)
+        {
+            context.PSMovePositionFilter = PSMoveAPI.psmove_position_filter_new();
+
+            if (context.PSMovePositionFilter != IntPtr.Zero)
+            {
+                UnityEngine.Debug.Log("PSMove position filter initialized.");
+
+                PSMoveAPI.PSMove_3AxisVector initial_position = new PSMoveAPI.PSMove_3AxisVector()
+                {
+                    x = 0.0f,
+                    y = 0.0f,
+                    z = 0.0f,
+                };
+                PSMoveAPI.PSMovePositionFilterSettings filter_settings = new PSMoveAPI.PSMovePositionFilterSettings();
+                PSMoveAPI.psmove_position_filter_get_default_settings(ref filter_settings);
+                filter_settings.filter_type = WorkerSettings.FilterType;
+                PSMoveAPI.psmove_position_filter_init(ref filter_settings, ref initial_position, context.PSMovePositionFilter);
             }
             else
             {
-                UnityEngine.Debug.LogError("PSMove failed to initialize.");
+                UnityEngine.Debug.LogError(string.Format("Failed to allocate PSMove Position Filter"));
                 success = false;
             }
         }
@@ -579,7 +666,7 @@ class PSMoveWorker
 
     private static bool WorkerContextIsTrackingSetup(WorkerContext context)
     {
-        return context.PSMoveTracker != IntPtr.Zero && context.PSMoveFusion != IntPtr.Zero;
+        return context.TrackerCount > 0;
     }
 
     private static bool WorkerContextUpdateControllerConnections(WorkerContext context)
@@ -628,17 +715,41 @@ class PSMoveWorker
                         context.WorkerSettings.bTrackerEnabled &&
                         WorkerContextIsTrackingSetup(context))
                     {
-                        // The controller is connected, but not tracking yet
-                        // Enable tracking for this controller with next available color.
-                        if (PSMoveAPI.psmove_tracker_enable(
-                                context.PSMoveTracker, 
-                                context.PSMoves[psmove_id]) == PSMoveTracker_Status.Tracker_CALIBRATED)
+                        int happyTrackerCount = 0;
+
+                        // Attempt to enable any trackers that haven't successfully calibrated the controller yet
+                        for (int tracker_index = 0; tracker_index < context.TrackerCount; ++tracker_index)
+                        {
+                            PSMoveTracker_Status tracker_status=
+                                PSMoveAPI.psmove_tracker_get_status(
+                                    context.PSMoveTrackers[tracker_index],
+                                    context.PSMoves[psmove_id]);
+
+                            if (tracker_status == PSMoveTracker_Status.Tracker_CALIBRATED ||
+                                tracker_status == PSMoveTracker_Status.Tracker_TRACKING)
+                            {
+                                ++happyTrackerCount;
+                            }
+                            else
+                            {
+                                // The controller is connected, but not tracking yet
+                                // Enable tracking for this controller with next available color.
+                                if (PSMoveAPI.psmove_tracker_enable(
+                                        context.PSMoveTrackers[tracker_index],
+                                        context.PSMoves[psmove_id]) == PSMoveTracker_Status.Tracker_CALIBRATED)
+                                {
+                                    ++happyTrackerCount;
+                                }
+                                else
+                                {
+                                    UnityEngine.Debug.LogError(string.Format("Failed to enable tracking for PSMove controller {0} on tracker {1}", psmove_id, tracker_index));
+                                }
+                            }
+                        }
+
+                        if (happyTrackerCount >= context.TrackerCount)
                         {
                             context.WorkerControllerDataArray[psmove_id].IsTrackingEnabled = true;
-                        }
-                        else
-                        {
-                            UnityEngine.Debug.LogError(string.Format("Failed to enable tracking for PSMove controller {0}", psmove_id));
                         }
                     }
                 }
@@ -676,20 +787,31 @@ class PSMoveWorker
             }
         }
 
-        // Delete the tracking fusion state
-        if (context.PSMoveFusion != IntPtr.Zero)
+        for (int tracker_index = 0; tracker_index < WorkerContext.MAX_TRACKER_COUNT; ++tracker_index)
         {
-            UnityEngine.Debug.Log("PSMove fusion disposed");
-            PSMoveAPI.psmove_fusion_free(context.PSMoveFusion);
-            context.PSMoveFusion = IntPtr.Zero;
-        }
+            // Delete the tracking fusion state
+            if (context.PSMoveFusions[tracker_index] != IntPtr.Zero)
+            {
+                UnityEngine.Debug.Log("PSMove fusion disposed");
+                PSMoveAPI.psmove_fusion_free(context.PSMoveFusions[tracker_index]);
+                context.PSMoveFusions[tracker_index] = IntPtr.Zero;
+            }
 
-        // Delete the tracker state
-        if (context.PSMoveTracker != IntPtr.Zero)
+            // Delete the tracker state
+            if (context.PSMoveTrackers[tracker_index] != IntPtr.Zero)
+            {
+                UnityEngine.Debug.Log("PSMove tracker disposed");
+                PSMoveAPI.psmove_tracker_free(context.PSMoveTrackers[tracker_index]);
+                context.PSMoveTrackers[tracker_index] = IntPtr.Zero;
+            }
+        }
+        context.TrackerCount = 0;
+
+        // Delete the position filter
+        if (context.PSMovePositionFilter != IntPtr.Zero)
         {
-            UnityEngine.Debug.Log("PSMove tracker disposed");
-            PSMoveAPI.psmove_tracker_free(context.PSMoveTracker);
-            context.PSMoveTracker = IntPtr.Zero;
+            PSMoveAPI.psmove_position_filter_free(context.PSMovePositionFilter);
+            context.PSMovePositionFilter = IntPtr.Zero;
         }
     }
 
@@ -716,35 +838,47 @@ class PSMoveWorker
 
     private static void ControllerUpdatePositions(
         PSMoveWorkerSettings WorkerSettings,
-        IntPtr psmove_tracker, // PSMoveTracker*
-        IntPtr psmove_fusion, // PSMoveFusion*
+        IntPtr[] psmove_trackers, // PSMoveTracker*
+        IntPtr[] psmove_fusions, // PSMoveFusion*
+        int tracker_count,
+        IntPtr position_filter,
         IntPtr psmove, // PSMove*
         PSMoveRawControllerData_Base controllerData)
     {
-        // Find the sphere position in the camera
-        PSMoveAPI.psmove_tracker_update(psmove_tracker, psmove);
-    
-        PSMoveTracker_Status curr_status = 
-            PSMoveAPI.psmove_tracker_get_status(psmove_tracker, psmove);
-    
-        // Can we actually see the controller this frame?
-        controllerData.IsSeenByTracker = curr_status == PSMoveTracker_Status.Tracker_TRACKING;
+        // Update the tracked position of the psmove for each tracker
+        for (int tracker_index = 0; tracker_index < tracker_count; ++tracker_index)
+        {
+            PSMoveAPI.psmove_tracker_update(psmove_trackers[tracker_index], psmove);
+        }
+
+        // Compute the triangulated camera position
+        PSMoveAPI.PSMove_3AxisVector measured_position = new PSMoveAPI.PSMove_3AxisVector();
+        controllerData.IsSeenByTracker =
+            PSMoveAPI.psmove_fusion_get_multicam_tracking_space_location(
+                psmove_fusions, tracker_count, psmove,
+                ref measured_position.x, ref measured_position.y, ref measured_position.z) == PSMove_Bool.PSMove_True;
 
         // Update the position of the controller
         if (controllerData.IsSeenByTracker)
-        {        
-            float xcm= 0.0f, ycm = 0.0f, zcm = 0.0f;
+        {
+            // Update the filtered position
+            PSMoveAPI.psmove_position_filter_update(
+                ref measured_position,
+                controllerData.IsSeenByTracker ? PSMove_Bool.PSMove_True : PSMove_Bool.PSMove_False,
+                position_filter);
 
-            PSMoveAPI.psmove_fusion_get_transformed_location(psmove_fusion, psmove, ref xcm, ref ycm, ref zcm);
+            // Get the filtered position
+            PSMoveAPI.PSMove_3AxisVector filtered_position =
+                PSMoveAPI.psmove_position_filter_get_position(position_filter);
         
             // [Store the controller position]
             // Remember the position the ps move controller in either its native space
             // or in a transformed space if a transform file existed.
             controllerData.PSMovePosition = 
                 new Vector3(
-                    xcm + WorkerSettings.PSMoveOffset.x,
-                    ycm + WorkerSettings.PSMoveOffset.y,
-                    zcm + WorkerSettings.PSMoveOffset.z);
+                    filtered_position.x + WorkerSettings.PSMoveOffset.x,
+                    filtered_position.y + WorkerSettings.PSMoveOffset.y,
+                    filtered_position.z + WorkerSettings.PSMoveOffset.z);
         }
     }
 
@@ -795,8 +929,8 @@ class PSMoveWorker
     private ManualResetEvent ThreadExitedSignal;
 
     // DLL Handles
-    private IntPtr psmoveapiHandle;
-    private IntPtr psmoveapiTrackerHandle;
+    private IntPtr psmoveapiSharedLibHandle;
+    private IntPtr psmoveapiTrackerSharedLibHandle;
 
 #if LOAD_DLL_MANUALLY
     private IntPtr LoadLib(string path)

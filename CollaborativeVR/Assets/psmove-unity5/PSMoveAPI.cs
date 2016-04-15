@@ -34,6 +34,7 @@ using UnityEngine;
 using System.Collections;
 using System.Runtime.InteropServices;
 using System;
+using System.Text;
 
 /* The following functions are bindings to Thomas Perl's C API for the PlayStation Move (http://thp.io/2010/psmove/)
  * See README for more details.
@@ -128,11 +129,11 @@ public enum PSMoveTracker_Exposure
     Exposure_INVALID, /*!< Invalid exposure value (for returning failures) */
 };
 
-public enum PSMoveTracker_Smoothing_Type
+public enum PSMove_PositionFilter_Type
 {
-    Smoothing_None,		// Don't use any smoothing
-    Smoothing_LowPass,	// A basic low pass filter (default)
-    Smoothing_Kalman,	// A more expensive Kalman filter 
+    PositionFilter_None,		// Don't use any smoothing
+    PositionFilter_LowPass,	// A basic low pass filter (default)
+    PositionFilter_Kalman,	// A more expensive Kalman filter 
 };
 
 public enum PSMoveTracker_ErrorCode
@@ -145,6 +146,7 @@ public enum PSMoveTracker_ErrorCode
 
 public class PSMoveAPI
 {
+    // -- Core API -----
     /*! Library version number */
     public enum PSMove_Version
     {
@@ -237,22 +239,7 @@ public class PSMoveAPI
     [DllImport("psmoveapi.dll")]
     public static extern void psmove_reset_orientation(IntPtr move);
 
-    // Tracker API
-    [StructLayout(LayoutKind.Sequential)]
-    public struct PSMoveTrackerSmoothingSettings
-    {
-        // Low Pass Filter Options
-        public int filter_do_2d_xy;        /* [1] specifies to use a adaptive x/y smoothing on pixel location */
-        public int filter_do_2d_r;         /* [1] specifies to use a adaptive radius smoothing on 2d blob  */
-        public PSMoveTracker_Smoothing_Type filter_3d_type;
-
-        // Kalman Filter Options
-        float acceleration_variance;
-        public float cov00, cov01, cov02;
-        public float cov10, cov11, cov12;
-        public float cov20, cov21, cov22;
-    };
-
+    // -- Tracker API -----
     /*!< Structure for storing tracker settings */
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
     public struct PSMoveTrackerSettings
@@ -261,16 +248,16 @@ public class PSMoveAPI
         public int camera_frame_width;                     /* [0=auto] */
         public int camera_frame_height;                    /* [0=auto] */
         public int camera_frame_rate;                      /* [0=auto] */
-        public PSMove_Bool camera_auto_gain;          /* [PSMove_False] */
+        public PSMove_Bool camera_auto_gain;               /* [PSMove_False] */
         public int camera_gain;                            /* [0] [0,0xFFFF] */
-        public PSMove_Bool camera_auto_white_balance; /* [PSMove_False] */
+        public PSMove_Bool camera_auto_white_balance;      /* [PSMove_False] */
         public int camera_exposure;                        /* [(255 * 15) / 0xFFFF] [0,0xFFFF] */
         public int camera_brightness;                      /* [0] [0,0xFFFF] */
-        public PSMove_Bool camera_mirror;             /* [PSMove_False] mirror camera image horizontally */
-        public PSMoveTracker_Camera_type camera_type; /* [PSMove_Camera_PS3EYE_BLUEDOT] camera type. Used for focal length when OpenCV calib missing */
+        public PSMove_Bool camera_mirror;                  /* [PSMove_False] mirror camera image horizontally */
+        public PSMoveTracker_Camera_type camera_type;      /* [PSMove_Camera_PS3EYE_BLUEDOT] camera type. Used for focal length when OpenCV calib missing */
 
         /* Settings for camera calibration process */
-        public PSMoveTracker_Exposure exposure_mode;  /* [Exposure_LOW] exposure mode for setting target luminance */
+        public PSMoveTracker_Exposure exposure_mode;       /* [Exposure_LOW] exposure mode for setting target luminance */
         public int calibration_blink_delay;                /* [200] number of milliseconds to wait between a blink  */
         public int calibration_diff_t;                     /* [20] during calibration, all grey values in the diff image below this value are set to black  */
         public int calibration_min_size;                   /* [50] minimum size of the estimated glowing sphere during calibration process (in pixel)  */
@@ -286,6 +273,8 @@ public class PSMoveAPI
 
         /* Settings for tracker algorithms */
         public int use_fitEllipse;                         /* [0] estimate circle from blob; [1] use fitEllipse */
+        public int filter_do_2d_xy;                        /* [1] specifies to use a adaptive x/y smoothing on pixel location */
+        public int filter_do_2d_r;                         /* [1] specifies to use a adaptive radius smoothing on 2d blob  */
 
         public float color_adaption_quality_t;             /* [35] maximal distance (calculated by 'psmove_tracker_hsvcolor_diff') between the first estimated color and the newly estimated  */
         public float color_update_rate;                    /* [1] every x seconds adapt to the color, 0 means no adaption  */
@@ -329,13 +318,21 @@ public class PSMoveAPI
     public static extern IntPtr psmove_tracker_new_with_settings(ref PSMoveTrackerSettings settings);
 
     [DllImport("psmoveapi_tracker.dll")]
+    public static extern IntPtr psmove_tracker_new_with_camera_and_settings(int camera, ref PSMoveTrackerSettings settings);
+
+    // Usage:
+    // UIntPtr bufferSize = 256
+    // StringBuilder identifier = new StringBuilder((int)bufferSize);
+    // psmove_tracker_get_identifier(tracker, identifier, bufferSize);
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern PSMove_Bool psmove_tracker_get_identifier(
+        IntPtr tracker,
+        [MarshalAs(UnmanagedType.LPTStr)]
+        StringBuilder out_buffer, 
+        UIntPtr buffer_size);
+
+    [DllImport("psmoveapi_tracker.dll")]
     public static extern PSMoveTracker_ErrorCode psmove_tracker_get_last_error();
-
-    [DllImport("psmoveapi_tracker.dll")]
-    public static extern void psmove_tracker_get_smoothing_settings(IntPtr tracker, ref PSMoveTrackerSmoothingSettings smoothing_settings);
-
-    [DllImport("psmoveapi_tracker.dll")]
-    public static extern void psmove_tracker_set_smoothing_settings(IntPtr tracker, ref PSMoveTrackerSmoothingSettings smoothing_settings);
 
     [DllImport("psmoveapi_tracker.dll")]
     public static extern void psmove_tracker_set_exposure(IntPtr tracker, PSMoveTracker_Exposure exposure);
@@ -361,7 +358,7 @@ public class PSMoveAPI
     [DllImport("psmoveapi_tracker.dll")]
     public static extern int psmove_tracker_cycle_color(IntPtr tracker, IntPtr psmove);
 
-    // Tracker Fusion API
+    // -- Tracker Fusion API -----
     [DllImport("psmoveapi_tracker.dll")]
     public static extern IntPtr psmove_fusion_new(IntPtr psmove_tracker, float z_near, float z_far);
 
@@ -369,8 +366,70 @@ public class PSMoveAPI
     public static extern void psmove_fusion_free(IntPtr psmove_fusion);
 
     [DllImport("psmoveapi_tracker.dll")]
-    public static extern void psmove_fusion_get_position(IntPtr psmove_fusion, IntPtr psmove, ref float xcm, ref float ycm, ref float zcm);
+    public static extern void psmove_fusion_get_tracker_pov_location(IntPtr psmove_fusion, IntPtr psmove, ref float xcm, ref float ycm, ref float zcm);
 
     [DllImport("psmoveapi_tracker.dll")]
-    public static extern void psmove_fusion_get_transformed_location(IntPtr psmove_fusion, IntPtr psmove, ref float xcm, ref float ycm, ref float zcm);
+    public static extern void psmove_fusion_get_tracking_space_location(IntPtr psmove_fusion, IntPtr psmove, ref float xcm, ref float ycm, ref float zcm);
+
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern PSMove_Bool psmove_fusion_get_multicam_tracking_space_location(
+        IntPtr[] fusions, int fusionCount, IntPtr move, ref float xcm, ref float ycm, ref float zcm);
+
+    // -- Position Filter API -----
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PSMove_3AxisVector
+    {
+        public float x;
+        public float y;
+        public float z;
+    };
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PSMovePositionFilterSettings
+    {
+        public PSMove_PositionFilter_Type filter_type;
+
+        // Low Pass Filter Options
+        // ---
+        // Kalman Filter Options
+        public float acceleration_variance;
+        public float cov00, cov01, cov02;
+        public float cov10, cov11, cov12;
+        public float cov20, cov21, cov22;
+    };
+
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern IntPtr psmove_position_filter_new();
+
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern void psmove_position_filter_free(IntPtr position_filter);
+
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern void psmove_position_filter_init(
+        ref PSMovePositionFilterSettings filter_settings, ref PSMove_3AxisVector position, IntPtr filter_state);
+
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern void psmove_position_filter_set_type(IntPtr filter, PSMove_PositionFilter_Type smoothing_type);
+
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern void psmove_position_filter_get_settings(
+        IntPtr position_filter, ref PSMovePositionFilterSettings filter_settings);
+
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern void psmove_position_filter_get_default_settings(ref PSMovePositionFilterSettings filter_settings);
+
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern PSMove_Bool psmove_position_filter_save_settings(ref PSMovePositionFilterSettings filter_settings);
+
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern PSMove_Bool psmove_position_filter_load_settings(ref PSMovePositionFilterSettings filter_settings);
+
+    [DllImport("psmoveapi_tracker.dll", CallingConvention = CallingConvention.Cdecl)]
+    public static extern PSMove_3AxisVector psmove_position_filter_get_position(IntPtr position_filter);
+
+    [DllImport("psmoveapi_tracker.dll", CallingConvention = CallingConvention.Cdecl)]
+    public static extern PSMove_3AxisVector psmove_position_filter_get_velocity(IntPtr position_filter);
+
+    [DllImport("psmoveapi_tracker.dll")]
+    public static extern void psmove_position_filter_update(ref PSMove_3AxisVector measured_position, PSMove_Bool was_tracked, IntPtr position_filter);
 }

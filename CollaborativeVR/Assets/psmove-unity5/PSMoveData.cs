@@ -228,7 +228,6 @@ public class PSMoveDataContext
             RawControllerData.ComponentRead();
 
             // If the worker thread posted new data then the sequence number should changes
-            //EDIT
             //if (RawControllerData.SequenceNumber != CurrentSequenceNumber)
             //{
                 // Actually update the previous controller state when we get new data

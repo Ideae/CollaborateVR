@@ -27,6 +27,7 @@ public class BoardDrawerTool : ToolBase {
         currentLineID++; //todo: request this lineID from the masterClient (who will increment it) so no two clients try to use the same one
         currentDrawingBoard.DrawLineOnBoard(hitInfo.Value.point, PSWand.ButtonState.ButtonDown, currentLineID);
         
+        
       }
     }
   }

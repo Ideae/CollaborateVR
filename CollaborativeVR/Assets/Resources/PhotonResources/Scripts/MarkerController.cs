@@ -44,15 +44,16 @@ public class MarkerController : MonoBehaviour
 
   public void ChooseColor(int colorIndex)
   {
+    print("Choose Color: " + colorIndex);
     if (colorIndex < PhotonWhiteboard.colorArray.Length)
     {
-      PhotonWhiteboard.drawColorID = (byte) colorIndex;
+      LineWhiteboard.drawColorIndex = (byte) colorIndex;
     }
   }
 
   public void ChooseBrushSize(int sizeIndex)
   {
-    PhotonWhiteboard.SetBrushSize((byte)sizeIndex);
+    LineWhiteboard.brushSize = (byte) sizeIndex;
   }
 
 }

@@ -65,8 +65,9 @@ public class PlayerPhoton : PunBehaviour
         whiteboards = FindObjectsOfType<PhotonWhiteboard>().ToList();
         SendNextWhiteboardTexture();
       }
-
     }
+
+    print("PLAYERID: " + PhotonNetwork.player.ID);
   }
 
   

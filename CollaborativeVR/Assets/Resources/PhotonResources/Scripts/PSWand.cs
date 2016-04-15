@@ -34,14 +34,40 @@ public class PSWand : MonoBehaviour
     controller.OnButtonMovePressed += MoveButtonPressed;
     controller.OnButtonMoveReleased += MoveButtonReleased;
     //controller.OnButtonCrossPressed += ;
-    //controller.OnButtonCirclePressed += ;
     //controller.OnButtonSquarePressed += ;
-    //controller.OnButtonTrianglePressed += ;
+    controller.OnButtonTrianglePressed += UndoAction;
+    controller.OnButtonCirclePressed += RedoAction;
 
     currentTool = gameObject.AddComponent<BoardDrawerTool>();
     
   }
-  
+
+  private void UndoAction(object sender, System.EventArgs e)
+  {
+    RaycastHit? hit = GetRaycastHit();
+    if (hit != null)
+    {
+      var lineWhiteboard = hit.Value.collider.gameObject.GetComponent<LineWhiteboard>();
+      if (lineWhiteboard != null)
+      {
+        lineWhiteboard.photonView.RPC("UndoRPC", PhotonTargets.All, new object[] {});
+      }
+    }
+  }
+
+  private void RedoAction(object sender, System.EventArgs e)
+  {
+    RaycastHit? hit = GetRaycastHit();
+    if (hit != null)
+    {
+      var lineWhiteboard = hit.Value.collider.gameObject.GetComponent<LineWhiteboard>();
+      if (lineWhiteboard != null)
+      {
+        lineWhiteboard.photonView.RPC("RedoRPC", PhotonTargets.All, new object[] { });
+      }
+    }
+  }
+
   private void Controller_OnButtonPSPressed(object sender, System.EventArgs e)
   {
     controller.ResetYaw();
@@ -54,19 +80,16 @@ public class PSWand : MonoBehaviour
     moveButtonHeld = true;
     currentTool.StartTool();
 
-    RaycastHit? hitInfo = GetRaycastHit();
-    if (hitInfo != null)
-    {
-      if (hitInfo.Value.collider.gameObject.name == "Floor")
-      {
-        transform.parent.position = new Vector3(hitInfo.Value.point.x, transform.parent.position.y,
-          hitInfo.Value.point.z);
-      }
-      //else
-      //{
-      //  DrawTool(hitInfo, ButtonState.ButtonDown);
-      //}
-    }
+    //teleport
+    //RaycastHit? hitInfo = GetRaycastHit();
+    //if (hitInfo != null)
+    //{
+    //  if (hitInfo.Value.collider.gameObject.name == "Floor")
+    //  {
+    //    transform.parent.position = new Vector3(hitInfo.Value.point.x, transform.parent.position.y,
+    //      hitInfo.Value.point.z);
+    //  }
+    //}
   }
 
   private void MoveButtonReleased(object sender, EventArgs e)
