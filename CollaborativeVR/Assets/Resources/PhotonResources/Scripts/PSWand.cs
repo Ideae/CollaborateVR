@@ -17,10 +17,12 @@ public class PSWand : MonoBehaviour
   private float oldTriggerValue = 0f;
   private bool moveButtonHeld = false;
   private PhotonWhiteboard currentDrawingBoard = null;
+  private LineWhiteboard spaceContainerWhiteboard = null;
 
   private Dictionary<Type, ToolBase> toolDict = new Dictionary<Type, ToolBase>();  
   private ToolBase currentTool;
 
+  private bool isWhiteboardTool = true;
 
   public enum ButtonState
   {
@@ -41,8 +43,13 @@ public class PSWand : MonoBehaviour
     controller.OnButtonTrianglePressed += UndoAction;
     controller.OnButtonCirclePressed += RedoAction;
 
-    currentTool = AddTool<BoardDrawerTool>();
+    spaceContainerWhiteboard = GameObject.Find("SpaceContainer").GetComponent<LineWhiteboard>();
+
+    currentTool = AddTool<BoardBrushTool>();
     AddTool<BoardLineTool>();
+    AddTool<SpaceBrushTool>();
+    AddTool<SpaceLineTool>();
+
 
   }
 
@@ -59,27 +66,41 @@ public class PSWand : MonoBehaviour
 
   private void UndoAction(object sender, System.EventArgs e)
   {
-    RaycastHit? hit = GetRaycastHit();
-    if (hit != null)
+    if (isWhiteboardTool)
     {
-      var lineWhiteboard = hit.Value.collider.gameObject.GetComponent<LineWhiteboard>();
-      if (lineWhiteboard != null)
+      RaycastHit? hit = GetRaycastHit();
+      if (hit != null)
       {
-        lineWhiteboard.photonView.RPC("UndoRPC", PhotonTargets.All, new object[] {});
+        var lineWhiteboard = hit.Value.collider.gameObject.GetComponent<LineWhiteboard>();
+        if (lineWhiteboard != null)
+        {
+          lineWhiteboard.photonView.RPC("UndoRPC", PhotonTargets.All, new object[] {});
+        }
       }
+    }
+    else
+    {
+      spaceContainerWhiteboard.photonView.RPC("UndoRPC", PhotonTargets.All, new object[] { });
     }
   }
 
   private void RedoAction(object sender, System.EventArgs e)
   {
-    RaycastHit? hit = GetRaycastHit();
-    if (hit != null)
+    if (isWhiteboardTool)
     {
-      var lineWhiteboard = hit.Value.collider.gameObject.GetComponent<LineWhiteboard>();
-      if (lineWhiteboard != null)
+      RaycastHit? hit = GetRaycastHit();
+      if (hit != null)
       {
-        lineWhiteboard.photonView.RPC("RedoRPC", PhotonTargets.All, new object[] { });
+        var lineWhiteboard = hit.Value.collider.gameObject.GetComponent<LineWhiteboard>();
+        if (lineWhiteboard != null)
+        {
+          lineWhiteboard.photonView.RPC("RedoRPC", PhotonTargets.All, new object[] {});
+        }
       }
+    }
+    else
+    {
+      spaceContainerWhiteboard.photonView.RPC("RedoRPC", PhotonTargets.All, new object[] { });
     }
   }
   private void ClearAll(object sender, System.EventArgs e)
@@ -159,25 +180,37 @@ public class PSWand : MonoBehaviour
 
     if (Input.GetKeyDown(KeyCode.Alpha1))
     {
-      currentTool = toolDict[typeof (BoardDrawerTool)];
+      currentTool = toolDict[typeof (BoardBrushTool)];
+      isWhiteboardTool = true;
     }
     else if (Input.GetKeyDown(KeyCode.Alpha2))
     {
       currentTool = toolDict[typeof(BoardLineTool)];
+      isWhiteboardTool = true;
+    }
+    else if (Input.GetKeyDown(KeyCode.Alpha3))
+    {
+      currentTool = toolDict[typeof(SpaceBrushTool)];
+      isWhiteboardTool = false;
+    }
+    else if (Input.GetKeyDown(KeyCode.Alpha4))
+    {
+      currentTool = toolDict[typeof(SpaceLineTool)];
+      isWhiteboardTool = false;
     }
 
 
     //controller.SetRumble(seen ? 0f : 0.5f);
 
-      //if (controller.TriggerValue > triggerThreshold && oldTriggerValue <= triggerThreshold)
-      //{
-      //  GrabObjectEventHandler();
-      //}
-      //else if (controller.TriggerValue < triggerThreshold && oldTriggerValue > triggerThreshold)
-      //{
-      //  ReleaseObjectEventHandler();
-      //}
-      //oldTriggerValue = controller.TriggerValue;
+    //if (controller.TriggerValue > triggerThreshold && oldTriggerValue <= triggerThreshold)
+    //{
+    //  GrabObjectEventHandler();
+    //}
+    //else if (controller.TriggerValue < triggerThreshold && oldTriggerValue > triggerThreshold)
+    //{
+    //  ReleaseObjectEventHandler();
+    //}
+    //oldTriggerValue = controller.TriggerValue;
   }
 
   private void FixedUpdate()

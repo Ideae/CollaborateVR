@@ -28,7 +28,8 @@ public class BoardLineTool : ToolBase
       {
         currentDrawingBoard = board;
         currentLineID++;
-        currentDrawingBoard.DrawLineOnBoard(hitInfo.Value.point, PSWand.ButtonState.ButtonDown, currentLineID);
+        Vector3 point = GetBoardPoint(hitInfo.Value.point, board);
+        currentDrawingBoard.DrawLineOnBoard(point, PSWand.ButtonState.ButtonDown, currentLineID);
 
 
       }
@@ -43,7 +44,8 @@ public class BoardLineTool : ToolBase
       var board = hitInfo.Value.collider.gameObject.GetComponent<LineWhiteboard>();
       if (currentDrawingBoard != null && currentDrawingBoard == board)
       {
-        currentDrawingBoard.DrawLineOnBoard(hitInfo.Value.point, PSWand.ButtonState.ButtonHeld, currentLineID);
+        Vector3 point = GetBoardPoint(hitInfo.Value.point, board);
+        currentDrawingBoard.DrawLineOnBoard(point, PSWand.ButtonState.ButtonHeld, currentLineID);
       }
     }
   }

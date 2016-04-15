@@ -40,4 +40,9 @@ public class ToolBase : MonoBehaviour
     }
     return null;
   }
+  private static float outwardsDist = 0.01f;
+  public static Vector3 GetBoardPoint(Vector3 pos, LineWhiteboard board)
+  {
+    return pos - board.transform.forward*outwardsDist;
+  }
 }

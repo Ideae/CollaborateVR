@@ -260,28 +260,25 @@ public class LineWhiteboard : PunBehaviour {
     else if (oldHitPoint != hitpoint)//(Vector3.SqrMagnitude(oldHitPoint - hitpoint) > minDrawDistSquared) //todo: floating point error? check that distance is great enough instead?
     {
       var coll = transform.GetComponent<Collider>();
-      //float x = (hitpoint.x - coll.bounds.min.x)/coll.bounds.size.x;
-      //float y = (hitpoint.y - coll.bounds.min.y)/coll.bounds.size.y;
-      float x = Vector3.Dot(transform.right, hitpoint - transform.position);
-      float y = Vector3.Dot(transform.up, hitpoint - transform.position);
+      //float x = Vector3.Dot(transform.right, hitpoint - transform.position);
+      //float y = Vector3.Dot(transform.up, hitpoint - transform.position);
       if (btnState == PSWand.ButtonState.ButtonDown)
       {
-        photonView.RPC("StartStrokeOnBoardCallback", PhotonTargets.All, new object[] {x, y, currentLineID, drawColorIndex, brushSize });
+        photonView.RPC("StartStrokeOnBoardCallback", PhotonTargets.All, new object[] {hitpoint, currentLineID, drawColorIndex, brushSize });
       }
       else if (btnState == PSWand.ButtonState.ButtonHeld)
       {
-        photonView.RPC("ContinueStrokeOnBoardCallback", PhotonTargets.All, new object[] { x, y, currentLineID });
+        photonView.RPC("ContinueStrokeOnBoardCallback", PhotonTargets.All, new object[] { hitpoint, currentLineID });
       }
       oldHitPoint = hitpoint;
     }
   }
-
-  private float outwardsDist = 0.01f;
+  
   [PunRPC]
-  public void StartStrokeOnBoardCallback(float x, float y, int currentLineID, byte colorByte, byte widthByte, PhotonMessageInfo info)
+  public void StartStrokeOnBoardCallback(Vector3 point, int currentLineID, byte colorByte, byte widthByte, PhotonMessageInfo info)
   {
     //print("StartStrokeOnBoardCallback");
-    Vector3 point = transform.position + transform.right*x + transform.up*y - transform.forward * outwardsDist;
+    //Vector3 point = transform.position + transform.right*x + transform.up*y - transform.forward * outwardsDist;
     GameObject g = (GameObject)Instantiate(lineRendererPrefab, point, Quaternion.identity);
     LineData lineData = new LineData(currentLineID, colorByte, g.GetComponent<LineRenderer>());
     
@@ -301,13 +298,13 @@ public class LineWhiteboard : PunBehaviour {
 
   }
   [PunRPC]
-  public void ContinueStrokeOnBoardCallback(float x, float y, int currentLineID, PhotonMessageInfo info)
+  public void ContinueStrokeOnBoardCallback(Vector3 point, int currentLineID, PhotonMessageInfo info)
   {
     //print("ContinueStrokeOnBoardCallback");
     DrawStrokeAction action = (DrawStrokeAction) actionSystem.GetUpdatingAction(info.sender.ID, currentLineID);
     if (action != null)
     {
-      Vector3 point = transform.position + transform.right * x + transform.up * y - transform.forward * outwardsDist;
+      //Vector3 point = transform.position + transform.right * x + transform.up * y - transform.forward * outwardsDist;
       LineData lineData = action.lineData;
       lineData.vertexCount++;
       lineData.lineRenderer.SetVertexCount(lineData.vertexCount);
@@ -343,20 +340,20 @@ public class LineWhiteboard : PunBehaviour {
       float y = Vector3.Dot(transform.up, hitpoint - transform.position);
       if (btnState == PSWand.ButtonState.ButtonDown)
       {
-        photonView.RPC("StartLineOnBoardCallback", PhotonTargets.All, new object[] { x, y, currentLineID, drawColorIndex, brushSize });
+        photonView.RPC("StartLineOnBoardCallback", PhotonTargets.All, new object[] { hitpoint, currentLineID, drawColorIndex, brushSize });
       }
       else if (btnState == PSWand.ButtonState.ButtonHeld)
       {
-        photonView.RPC("ContinueLineOnBoardCallback", PhotonTargets.All, new object[] { x, y, currentLineID });
+        photonView.RPC("ContinueLineOnBoardCallback", PhotonTargets.All, new object[] { hitpoint, currentLineID });
       }
       oldHitPoint = hitpoint;
     }
   }
   
   [PunRPC]
-  public void StartLineOnBoardCallback(float x, float y, int currentLineID, byte colorByte, byte widthByte, PhotonMessageInfo info)
+  public void StartLineOnBoardCallback(Vector3 point, int currentLineID, byte colorByte, byte widthByte, PhotonMessageInfo info)
   {
-    Vector3 point = transform.position + transform.right * x + transform.up * y - transform.forward * outwardsDist;
+    //Vector3 point = transform.position + transform.right * x + transform.up * y - transform.forward * outwardsDist;
     GameObject g = (GameObject)Instantiate(lineRendererPrefab, point, Quaternion.identity);
     LineData lineData = new LineData(currentLineID, colorByte, g.GetComponent<LineRenderer>());
     
@@ -375,12 +372,12 @@ public class LineWhiteboard : PunBehaviour {
 
   }
   [PunRPC]
-  public void ContinueLineOnBoardCallback(float x, float y, int currentLineID, PhotonMessageInfo info)
+  public void ContinueLineOnBoardCallback(Vector3 point, int currentLineID, PhotonMessageInfo info)
   {
     DrawStrokeAction action = (DrawStrokeAction)actionSystem.GetUpdatingAction(info.sender.ID, currentLineID);
     if (action != null)
     {
-      Vector3 point = transform.position + transform.right * x + transform.up * y - transform.forward * outwardsDist;
+      //Vector3 point = transform.position + transform.right * x + transform.up * y - transform.forward * outwardsDist;
       LineData lineData = action.lineData;
       lineData.lineRenderer.SetPosition(1, point);
     }

@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class BoardDrawerTool : ToolBase {
+public class BoardBrushTool : ToolBase {
   private LineWhiteboard currentDrawingBoard = null;
   private int currentLineID = 0;
   // Use this for initialization
@@ -25,9 +25,8 @@ public class BoardDrawerTool : ToolBase {
       {
         currentDrawingBoard = board;
         currentLineID++;
-        currentDrawingBoard.DrawStrokeOnBoard(hitInfo.Value.point, PSWand.ButtonState.ButtonDown, currentLineID);
-        
-        
+        Vector3 point = GetBoardPoint(hitInfo.Value.point, board);
+        currentDrawingBoard.DrawStrokeOnBoard(point, PSWand.ButtonState.ButtonDown, currentLineID);
       }
     }
   }
@@ -40,7 +39,8 @@ public class BoardDrawerTool : ToolBase {
       var board = hitInfo.Value.collider.gameObject.GetComponent<LineWhiteboard>();
       if (currentDrawingBoard != null && currentDrawingBoard == board)
       {
-        currentDrawingBoard.DrawStrokeOnBoard(hitInfo.Value.point, PSWand.ButtonState.ButtonHeld, currentLineID);
+        Vector3 point = GetBoardPoint(hitInfo.Value.point, board);
+        currentDrawingBoard.DrawStrokeOnBoard(point, PSWand.ButtonState.ButtonHeld, currentLineID);
       }
     }
   }
