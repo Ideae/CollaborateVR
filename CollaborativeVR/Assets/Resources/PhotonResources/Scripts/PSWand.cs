@@ -38,10 +38,10 @@ public class PSWand : MonoBehaviour
     controller.OnButtonPSPressed += Controller_OnButtonPSPressed;
     controller.OnButtonMovePressed += MoveButtonPressed;
     controller.OnButtonMoveReleased += MoveButtonReleased;
-    controller.OnButtonSquarePressed += ClearAll;
-    //controller.OnButtonCrossPressed += ;
+    controller.OnButtonSquarePressed += RedoAction;
     controller.OnButtonTrianglePressed += UndoAction;
-    controller.OnButtonCirclePressed += RedoAction;
+    controller.OnButtonCrossPressed += ClearAll;
+    //controller.OnButtonCirclePressed += ;
 
     spaceContainerWhiteboard = GameObject.Find("SpaceContainer").GetComponent<LineWhiteboard>();
 
@@ -49,7 +49,7 @@ public class PSWand : MonoBehaviour
     AddTool<BoardLineTool>();
     AddTool<SpaceBrushTool>();
     AddTool<SpaceLineTool>();
-
+    AddTool<BoardTextTool>();
 
   }
 
@@ -66,7 +66,7 @@ public class PSWand : MonoBehaviour
 
   private void UndoAction(object sender, System.EventArgs e)
   {
-    if (isWhiteboardTool)
+    if (isWhiteboardTool) //todo: make more general if other tools are used
     {
       RaycastHit? hit = GetRaycastHit();
       if (hit != null)
@@ -86,7 +86,7 @@ public class PSWand : MonoBehaviour
 
   private void RedoAction(object sender, System.EventArgs e)
   {
-    if (isWhiteboardTool)
+    if (isWhiteboardTool) //todo: make more general if other tools are used
     {
       RaycastHit? hit = GetRaycastHit();
       if (hit != null)
@@ -198,7 +198,12 @@ public class PSWand : MonoBehaviour
       currentTool = toolDict[typeof(SpaceLineTool)];
       isWhiteboardTool = false;
     }
-
+    else if (Input.GetKeyDown(KeyCode.Alpha5))
+    {
+      currentTool = toolDict[typeof(BoardTextTool)];
+      isWhiteboardTool = false;
+    }
+    
 
     //controller.SetRumble(seen ? 0f : 0.5f);
 

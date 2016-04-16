@@ -5,8 +5,8 @@ using UnityEngine.Windows.Speech;
 
 public class SpeechRecognition : MonoBehaviour {
 
-  [SerializeField]
-  private Text m_Hypotheses;
+  //[SerializeField]
+  //private Text m_Hypotheses;
 
   [SerializeField]
   private Text m_Recognitions;
@@ -20,13 +20,13 @@ public class SpeechRecognition : MonoBehaviour {
     m_DictationRecognizer.DictationResult += (text, confidence) =>
     {
       //Debug.LogFormat("Dictation result: {0}", text);
-      m_Recognitions.text = text + "\n";
+      m_Recognitions.text = text;
     };
 
     m_DictationRecognizer.DictationHypothesis += (text) =>
     {
       //Debug.LogFormat("Dictation hypothesis: {0}", text);
-      m_Hypotheses.text = text + "\n";
+      m_Recognitions.text = text;
     };
 
     m_DictationRecognizer.DictationComplete += (completionCause) =>

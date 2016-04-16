@@ -4,7 +4,7 @@ using System.Collections;
 public class SpaceBrushTool : ToolBase
 {
   private LineWhiteboard currentDrawingBoard = null;
-  private int currentLineID = 0;
+  private static int currentLineID = 0;
   // Use this for initialization
   void Start()
   {

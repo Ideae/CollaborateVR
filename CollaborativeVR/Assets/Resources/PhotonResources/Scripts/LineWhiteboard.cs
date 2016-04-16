@@ -336,8 +336,10 @@ public class LineWhiteboard : PunBehaviour {
       var coll = transform.GetComponent<Collider>();
       //float x = (hitpoint.x - coll.bounds.min.x)/coll.bounds.size.x;
       //float y = (hitpoint.y - coll.bounds.min.y)/coll.bounds.size.y;
-      float x = Vector3.Dot(transform.right, hitpoint - transform.position);
-      float y = Vector3.Dot(transform.up, hitpoint - transform.position);
+
+      //float x = Vector3.Dot(transform.right, hitpoint - transform.position);
+      //float y = Vector3.Dot(transform.up, hitpoint - transform.position);
+
       if (btnState == PSWand.ButtonState.ButtonDown)
       {
         photonView.RPC("StartLineOnBoardCallback", PhotonTargets.All, new object[] { hitpoint, currentLineID, drawColorIndex, brushSize });

@@ -4,7 +4,7 @@ using System.Collections;
 public class BoardLineTool : ToolBase
 {
   private LineWhiteboard currentDrawingBoard = null;
-  private int currentLineID = 0;
+  private static int currentLineID = 0;
   // Use this for initialization
   void Start()
   {
@@ -19,7 +19,6 @@ public class BoardLineTool : ToolBase
 
   public override void StartTool()
   {
-    print("StartTool");
     RaycastHit? hitInfo = GetRaycastHit();
     if (hitInfo != null && hitInfo.Value.collider.gameObject != null)
     {
