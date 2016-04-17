@@ -10,7 +10,7 @@ public class BoardTextTool : ToolBase {
   private GameObject textbuttonPrefab;
   private Text currentText;
   private static int currentTextID = 0;
-
+  private bool isDictating = false;
   public override void Awake()
   {
     base.Awake();
@@ -30,32 +30,43 @@ public class BoardTextTool : ToolBase {
       //Debug.LogFormat("Dictation hypothesis: {0}", text);
       currentText.text = text;
       currentText.color = Color.green;
+
     };
 
     m_DictationRecognizer.DictationComplete += (completionCause) =>
     {
       if (completionCause != DictationCompletionCause.Complete)
+      {
         Debug.LogErrorFormat("Dictation completed unsuccessfully: {0}.", completionCause);
+        DeleteTextElement();
+      }
       CleanupDictation();
     };
 
     m_DictationRecognizer.DictationError += (error, hresult) =>
     {
       Debug.LogErrorFormat("Dictation error: {0}; HResult = {1}.", error, hresult);
+      DeleteTextElement();
       CleanupDictation();
     };
   }
 
+  private void DeleteTextElement()
+  {
+    Destroy(currentText.transform.parent.gameObject);
+  }
   private void CleanupDictation()
   {
     currentDrawingBoard = null;
     currentCanvas = null;
     currentText = null;
+    isDictating = false;
     m_DictationRecognizer.Stop();
   }
 
   public override void StartTool()
   {
+    if (isDictating) return;
     RaycastHit? hitInfo = GetRaycastHit();
     if (hitInfo != null && hitInfo.Value.collider.gameObject != null)
     {
@@ -83,6 +94,7 @@ public class BoardTextTool : ToolBase {
         currentText.text = "Speak into Microphone...";
         currentText.color = Color.red;
         m_DictationRecognizer.Start();
+        isDictating = true;
         //currentDrawingBoard.DrawLineOnBoard(point, PSWand.ButtonState.ButtonDown, currentTextID);
 
 
