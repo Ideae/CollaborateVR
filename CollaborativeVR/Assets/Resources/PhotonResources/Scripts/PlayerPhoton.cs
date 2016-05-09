@@ -12,11 +12,12 @@ public class PlayerPhoton : PunBehaviour
   //public float smooth = 4f;
 
   private Camera cam;
+  private GameObject head;
   private CharacterController characterCont;
   private FirstPersonController fpController;
   private Rigidbody myRigidbody;
   private Transform myTransform;
-
+  
   //private Vector3 playerPosition;
   private Point oldMousePoint;
 
@@ -26,8 +27,8 @@ public class PlayerPhoton : PunBehaviour
   public static extern bool GetCursorPos(out Point pos);
 
 
-  private Vector3 correctPlayerPos;
-  private Quaternion correctPlayerRot;
+  private Vector3 correctPlayerPos, correctHeadPos;
+  private Quaternion correctPlayerRot, correctHeadRot;
   private float speed = 5f;
   [HideInInspector]
   public static int spawnPosIndex = 0;
@@ -52,11 +53,13 @@ public class PlayerPhoton : PunBehaviour
 
 
     cam = transform.FindChild("Camera").GetComponent<Camera>();
+    head = transform.FindChild("Head").gameObject;
     if (photonView.isMine)
     {
       characterCont.enabled = true;
       fpController.enabled = true;
       cam.gameObject.SetActive(true);
+      head.SetActive(false);
 
       //start process of sending all whiteboard textures sequentially, with manuallly buffered RPCs
       if (!PhotonNetwork.player.isMasterClient)
@@ -89,6 +92,8 @@ public class PlayerPhoton : PunBehaviour
     //CmdSendTexture(whiteboards.ElementAt(0).Key);
   }
 
+
+
   void Update()
   {
     if (photonView.isMine)
@@ -102,6 +107,8 @@ public class PlayerPhoton : PunBehaviour
 
       transform.position = Vector3.Lerp(transform.position, this.correctPlayerPos, Time.deltaTime * speed);
       transform.rotation = Quaternion.Lerp(transform.rotation, this.correctPlayerRot, Time.deltaTime * speed);
+      head.transform.position = Vector3.Lerp(head.transform.position, this.correctHeadPos, Time.deltaTime * speed);
+      head.transform.rotation = Quaternion.Lerp(head.transform.rotation, this.correctHeadRot, Time.deltaTime * speed);
     }
   }
   public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
@@ -111,12 +118,16 @@ public class PlayerPhoton : PunBehaviour
       // We own this player: send the others our data
       stream.SendNext(transform.position);
       stream.SendNext(transform.rotation);
+      stream.SendNext(cam.transform.position);
+      stream.SendNext(cam.transform.rotation);
     }
     else
     {
       // Network player, receive data
       this.correctPlayerPos = (Vector3)stream.ReceiveNext();
       this.correctPlayerRot = (Quaternion)stream.ReceiveNext();
+      this.correctHeadPos = (Vector3)stream.ReceiveNext();
+      this.correctHeadRot = (Quaternion)stream.ReceiveNext();
     }
   }
 
