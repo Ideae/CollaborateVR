@@ -56,4 +56,12 @@ public class MarkerController : MonoBehaviour
     LineWhiteboard.brushSize = (byte) sizeIndex;
   }
 
+  public void ChooseTool(int toolIndex)
+  {
+    var wands = FindObjectsOfType<PSWand>();
+    foreach (var w in wands)
+    {
+      w.ChangeTool(toolIndex);
+    }
+  }
 }

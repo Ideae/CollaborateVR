@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class PSWand : MonoBehaviour
@@ -178,6 +179,8 @@ public class PSWand : MonoBehaviour
   {
     bool seen = controller.IsTracking;
 
+
+
     if (Input.GetKeyDown(KeyCode.Alpha1))
     {
       currentTool = toolDict[typeof (BoardBrushTool)];
@@ -216,6 +219,49 @@ public class PSWand : MonoBehaviour
     //  ReleaseObjectEventHandler();
     //}
     //oldTriggerValue = controller.TriggerValue;
+  }
+
+  private static List<Type> toolTypeIndices = new List<Type>()
+  {
+    typeof(BoardBrushTool),
+    typeof(BoardLineTool),
+    typeof(SpaceBrushTool),
+    typeof(SpaceLineTool),
+    typeof(BoardTextTool),
+  }; 
+
+  public void ChangeTool(int index)
+  {
+    if (index >= 0 && index < toolTypeIndices.Count)
+    {
+      currentTool = toolDict[toolTypeIndices.ElementAt(index)];
+      isWhiteboardTool = index < 2;
+    }
+    //if (index == 0)
+    //{
+    //  currentTool = toolDict[typeof(BoardBrushTool)];
+    //  isWhiteboardTool = true;
+    //}
+    //else if (index == 1)
+    //{
+    //  currentTool = toolDict[typeof(BoardLineTool)];
+    //  isWhiteboardTool = true;
+    //}
+    //else if (index == 2)
+    //{
+    //  currentTool = toolDict[typeof(SpaceBrushTool)];
+    //  isWhiteboardTool = false;
+    //}
+    //else if (index == 3)
+    //{
+    //  currentTool = toolDict[typeof(SpaceLineTool)];
+    //  isWhiteboardTool = false;
+    //}
+    //else if (index == 4)
+    //{
+    //  currentTool = toolDict[typeof(BoardTextTool)];
+    //  isWhiteboardTool = false;
+    //}
   }
 
   private void FixedUpdate()
